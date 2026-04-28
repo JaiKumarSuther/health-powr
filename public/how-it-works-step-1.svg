@@ -1,0 +1,67 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hpBg" x1="0" y1="0" x2="1200" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <linearGradient id="hpTealWash" x1="1200" y1="0" x2="0" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0D9488" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#0D9488" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="hpDots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.25" fill="#0D9488" fill-opacity="0.12"/>
+    </pattern>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="900" fill="url(#hpBg)"/>
+  <rect width="1200" height="900" fill="url(#hpTealWash)"/>
+  <rect width="1200" height="900" fill="url(#hpDots)"/>
+
+  <!-- Abstract neighborhood grid + route line (kept subtle, brand-only color). -->
+  <g opacity="0.28" filter="url(#soft)">
+    <path d="M110 210H1090" stroke="#0F172A" stroke-opacity="0.16" stroke-width="2" stroke-linecap="round"/>
+    <path d="M140 340H1060" stroke="#0F172A" stroke-opacity="0.12" stroke-width="2" stroke-linecap="round"/>
+    <path d="M120 470H1080" stroke="#0F172A" stroke-opacity="0.12" stroke-width="2" stroke-linecap="round"/>
+    <path d="M180 600H1020" stroke="#0F172A" stroke-opacity="0.10" stroke-width="2" stroke-linecap="round"/>
+
+    <path d="M260 140V760" stroke="#0F172A" stroke-opacity="0.12" stroke-width="2" stroke-linecap="round"/>
+    <path d="M420 120V780" stroke="#0F172A" stroke-opacity="0.10" stroke-width="2" stroke-linecap="round"/>
+    <path d="M580 160V740" stroke="#0F172A" stroke-opacity="0.10" stroke-width="2" stroke-linecap="round"/>
+    <path d="M740 130V770" stroke="#0F172A" stroke-opacity="0.10" stroke-width="2" stroke-linecap="round"/>
+    <path d="M900 150V750" stroke="#0F172A" stroke-opacity="0.10" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <g opacity="0.55">
+    <path d="M220 690C320 560 430 600 520 480C610 360 740 380 850 250" stroke="#0D9488" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
+    <path d="M220 690C320 560 430 600 520 480C610 360 740 380 850 250" stroke="#FFFFFF" stroke-opacity="0.65" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- Location pins (minimal, teal + slate only). -->
+  <g opacity="0.9">
+    <g transform="translate(204 666)">
+      <circle cx="16" cy="16" r="15" fill="#FFFFFF" fill-opacity="0.9" stroke="#0D9488" stroke-opacity="0.35"/>
+      <circle cx="16" cy="16" r="5.5" fill="#0D9488" fill-opacity="0.75"/>
+    </g>
+    <g transform="translate(504 456)">
+      <circle cx="16" cy="16" r="15" fill="#FFFFFF" fill-opacity="0.9" stroke="#0D9488" stroke-opacity="0.35"/>
+      <circle cx="16" cy="16" r="5.5" fill="#0D9488" fill-opacity="0.75"/>
+    </g>
+    <g transform="translate(834 226)">
+      <circle cx="16" cy="16" r="15" fill="#FFFFFF" fill-opacity="0.9" stroke="#0D9488" stroke-opacity="0.35"/>
+      <circle cx="16" cy="16" r="5.5" fill="#0D9488" fill-opacity="0.75"/>
+    </g>
+  </g>
+
+  <!-- Soft cards hinting “search results”. -->
+  <g opacity="0.5">
+    <rect x="760" y="520" width="330" height="66" rx="18" fill="#FFFFFF" fill-opacity="0.8" stroke="#0F172A" stroke-opacity="0.10"/>
+    <rect x="790" y="544" width="210" height="10" rx="5" fill="#0F172A" fill-opacity="0.12"/>
+    <rect x="790" y="562" width="160" height="8" rx="4" fill="#0F172A" fill-opacity="0.09"/>
+    <rect x="760" y="604" width="290" height="66" rx="18" fill="#FFFFFF" fill-opacity="0.7" stroke="#0F172A" stroke-opacity="0.08"/>
+    <rect x="790" y="628" width="190" height="10" rx="5" fill="#0F172A" fill-opacity="0.10"/>
+    <rect x="790" y="646" width="140" height="8" rx="4" fill="#0F172A" fill-opacity="0.08"/>
+  </g>
+</svg>

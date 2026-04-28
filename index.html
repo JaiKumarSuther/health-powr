@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="HealthPowr - Your gateway to essential social services including housing, food, healthcare, and community support" />
+    <meta name="theme-color" content="#0D9488" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/healthPowr-logo.png" />
+    <link rel="shortcut icon" type="image/png" href="/healthPowr-logo.png" />
+    <link rel="apple-touch-icon" href="/healthPowr-logo.png" />
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="HealthPowr" />
+    
+    <!-- Splash Screens for iOS -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <title>HealthPowr - Social Services Platform</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- PWA Installation Script -->
+    <script>
+      // Handle PWA installation events
+      let deferredPrompt;
+      
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        localStorage.setItem('pwa-prompt-available', 'true');
+      });
+      
+      window.addEventListener('appinstalled', () => {
+        console.log('HealthPowr PWA was installed');
+        localStorage.removeItem('pwa-prompt-available');
+      });
+    </script>
+  </body>
+</html>

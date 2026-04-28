@@ -1,0 +1,52 @@
+{
+  "name": "HealthPowr - Social Services Platform",
+  "short_name": "HealthPowr",
+  "description": "Your gateway to essential social services - housing, food, healthcare, and community support",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "categories": ["health", "social", "utilities"],
+  "lang": "en-US",
+  "icons": [],
+  "shortcuts": [
+    {
+      "name": "Emergency Resources",
+      "short_name": "Emergency",
+      "description": "Find emergency services near you",
+      "url": "/emergency",
+      "icons": []
+    },
+    {
+      "name": "Find Services",
+      "short_name": "Services",
+      "description": "Search for social services",
+      "url": "/services",
+      "icons": []
+    },
+    {
+      "name": "My Applications",
+      "short_name": "Applications",
+      "description": "Track your service applications",
+      "url": "/applications",
+      "icons": []
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "HealthPowr home screen on desktop"
+    },
+    {
+      "src": "/screenshots/mobile-services.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Service discovery on mobile"
+    }
+  ]
+}
