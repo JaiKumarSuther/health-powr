@@ -239,6 +239,7 @@ export async function getInternalConversations() {
       id,
       conversation_type,
       title,
+      subject,
       organization_id,
       last_message_at,
       conversation_participants (
@@ -265,8 +266,6 @@ export async function getInternalConversations() {
     console.error('[getInternalConversations] error:', error)
     throw error
   }
-
-  console.log('[getInternalConversations] raw data:', data)
   return (data ?? []).map((conv: any) => ({
     ...conv,
     messages: [...(conv.messages ?? [])].sort(
