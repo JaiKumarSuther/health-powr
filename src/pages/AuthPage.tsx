@@ -39,12 +39,25 @@ export function AuthPage() {
 
   // ── Redirect once profile is loaded ──────────────────────────────
   useEffect(() => {
-    if (!user || !profile) return;
-    const dest =
-      profile.role === "admin" ? "/admin" :
-        profile.role === "organization" ? "/cbo" : "/client";
-    navigate(dest, { replace: true });
-  }, [user, profile]);
+    console.log("[AuthPage] useEffect check:", {
+      hasUser: !!user,
+      hasProfile: !!profile,
+      userEmail: user?.email,
+      profileRole: profile?.role
+    });
+
+    if (user && profile) {
+      const dest =
+        profile.role === "admin" ? "/admin" :
+          profile.role === "organization" ? "/cbo" : "/client";
+
+      console.log("[AuthPage] Auth resolved, navigating to:", dest);
+      // Use setTimeout to ensure state updates have propagated
+      setTimeout(() => {
+        navigate(dest, { replace: true });
+      }, 100);
+    }
+  }, [user, profile, navigate]);
 
   // ── Resend countdown ─────────────────────────────────────────────
   useEffect(() => {
@@ -75,14 +88,18 @@ export function AuthPage() {
     setLoading(true); setError(null);
     try {
       await signIn({ email, password });
-      // Navigation handled by the useEffect above once profile loads
+      // We do NOT call navigate here.
+      // The useEffect above will handle redirection once the AuthContext updates.
+      // If we are successful, the component will eventually unmount.
     } catch (e: any) {
+      console.error("[AuthPage] Sign in failed:", e);
       setError(
         e.message.includes("Invalid login") || e.message.includes("invalid_credentials")
           ? "Incorrect email or password."
           : e.message
       );
-    } finally { setLoading(false); }
+      setLoading(false); // Only set loading to false on error so spinner keeps going on success until redirect
+    }
   }
 
   async function handleSignUp() {

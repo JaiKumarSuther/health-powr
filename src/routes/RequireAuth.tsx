@@ -106,10 +106,53 @@ export function RequireAuth({
     }
   }, [effectiveRole, roleList, user, isLoading, isResolvingRole, navigate]);
 
-  if (isLoading || isResolvingRole) {
+  const [isFallbackLoading, setIsFallbackLoading] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    
+    // Safety timeout: stop loading after 5 seconds no matter what
+    timeoutRef.current = setTimeout(() => {
+      if (alive) {
+        console.warn("[RequireAuth] Loading timeout reached, forcing fallback loading to false");
+        setIsFallbackLoading(false);
+      }
+    }, 5000);
+
+    // Initial check
+    if (!isLoading && !isResolvingRole) {
+      setIsFallbackLoading(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      return;
+    }
+
+    // Fallback: check session directly
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      if (data.session) {
+        console.log("[RequireAuth] Found session via fallback check");
+      }
+      setIsFallbackLoading(false);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    });
+
+    return () => {
+      alive = false;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [isLoading, isResolvingRole]);
+
+  if ((isLoading || isResolvingRole) && isFallbackLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading…</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
+          <p className="text-sm text-gray-500 font-medium text-center">
+            Initializing secure session...<br/>
+            <span className="text-xs text-gray-400">This usually takes a few seconds</span>
+          </p>
+        </div>
       </div>
     );
   }

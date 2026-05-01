@@ -354,7 +354,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Only run full init for actual sign in/out or initial session events
         if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
-          void initializeAuth(() => isMounted);
+          setIsResolvingRole(true);
+          try {
+            await initializeAuth(() => isMounted);
+          } catch (error) {
+            console.error("[AuthContext] Error handling auth state change:", error);
+          } finally {
+            if (isMounted) {
+              setIsResolvingRole(false);
+              setIsLoading(false);
+            }
+          }
         }
       },
     );
@@ -364,7 +374,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authListener.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initializeAuth, session]);
+  }, [initializeAuth]);
 
   const signIn: AuthContextType["signIn"] = async ({ email, password }) => {
     setIsSubmitting(true);
