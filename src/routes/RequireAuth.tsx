@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../types/user';
 
@@ -84,6 +84,28 @@ export function RequireAuth({
     };
   }, [isAdminRoute, isLoading, isResolvingRole, location.pathname]);
 
+  const prevRoleRef = useRef<string | null>(null);
+  const navigate = useNavigate();
+  const effectiveRole: UserRole = (profile?.role ?? user.role) as UserRole;
+  const roleList = allowedRoles ?? (role ? [role] : undefined);
+
+  useEffect(() => {
+    if (!user || isLoading || isResolvingRole) return;
+    
+    // Strict role enforcement: each role can only access its own portal
+    if (roleList && roleList.length > 0 && !roleList.includes(effectiveRole)) {
+      if (effectiveRole === prevRoleRef.current) return;
+      prevRoleRef.current = effectiveRole;
+
+      // Redirect to the correct portal for their role
+      if (effectiveRole === 'admin') navigate("/admin", { replace: true });
+      else if (effectiveRole === 'organization') navigate("/cbo", { replace: true });
+      else navigate("/client", { replace: true });
+    } else {
+      prevRoleRef.current = effectiveRole;
+    }
+  }, [effectiveRole, roleList, user, isLoading, isResolvingRole, navigate]);
+
   if (isLoading || isResolvingRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -109,15 +131,10 @@ export function RequireAuth({
     return <Navigate to="/" replace state={{ from: location }} />;
   }
 
-  const effectiveRole: UserRole = (profile?.role ?? user.role) as UserRole;
-  const roleList = allowedRoles ?? (role ? [role] : undefined);
-
-  // Strict role enforcement: each role can only access its own portal
+  // If we're here, either role is allowed OR navigation is in progress from useEffect
+  // We return children if allowed, otherwise we return null to avoid flicker while navigating
   if (roleList && roleList.length > 0 && !roleList.includes(effectiveRole)) {
-    // Redirect to the correct portal for their role
-    if (effectiveRole === 'admin') return <Navigate to="/admin" replace />;
-    if (effectiveRole === 'organization') return <Navigate to="/cbo" replace />;
-    return <Navigate to="/client" replace />;
+    return null;
   }
 
   return <>{children}</>;

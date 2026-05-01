@@ -313,6 +313,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('message', handler)
   }, [initializeAuth])
 
+  const currentUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
@@ -322,6 +324,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, nextSession) => {
+        const nextUserId = nextSession?.user?.id ?? null;
+
+        // Skip if same user — tab focus token refresh should not re-trigger profile fetch
+        if (nextUserId && nextUserId === currentUserIdRef.current) {
+          // Still update session if it changed (e.g. token refresh)
+          if (nextSession && nextSession !== session) {
+            setSession(nextSession);
+          }
+          return;
+        }
+
+        currentUserIdRef.current = nextUserId;
+
         if (event === "SIGNED_OUT") {
           if (!isMounted) return;
           setSession(null);
@@ -334,14 +349,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (event === "TOKEN_REFRESHED") {
-          if (!isMounted) return;
-          setSession(nextSession ?? null);
-          return;
-        }
-
-        // For other events (SIGNED_IN, INITIAL_SESSION), run the full init
-        if (event === "SIGNED_IN") {
+        // Only run full init for actual sign in/out or initial session events
+        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
           void initializeAuth(() => isMounted);
         }
       },
@@ -352,7 +361,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authListener.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initializeAuth]);
+  }, [initializeAuth, session]);
 
   const signIn: AuthContextType["signIn"] = async ({ email, password }) => {
     setIsSubmitting(true);
