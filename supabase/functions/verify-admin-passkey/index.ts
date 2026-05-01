@@ -107,64 +107,81 @@ function json(status: number, body: unknown, origin: string) {
 }
 
 Deno.serve(async (req) => {
-  const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "").trim();
-  if (!allowedRaw) {
-    console.error("[verify-admin-passkey] Missing ALLOWED_ORIGIN secret.");
-    return new Response(JSON.stringify({ error: "Server misconfigured." }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
-  }
+  const origin = req.headers.get("origin") || "";
 
-  const origin = (req.headers.get("origin") ?? "").trim();
-  const allowed = parseAllowedOrigins(allowedRaw);
-  if (!origin || !allowed.includes(origin)) {
-    return new Response(JSON.stringify({ error: "Forbidden origin." }), {
-      status: 403,
-      headers: { "content-type": "application/json" },
-    });
-  }
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(origin) });
-  }
-  if (req.method !== "POST") return json(405, { error: "Method not allowed" }, origin);
-
-  const expectedPasskey = (Deno.env.get("ADMIN_PASSKEY") ?? "").trim();
-  if (!expectedPasskey) {
-    console.error("[verify-admin-passkey] Missing ADMIN_PASSKEY secret.");
-    return json(500, { error: "Server misconfigured." }, origin);
-  }
-
-  const payload = (await req.json().catch(() => null)) as
-    | { passkey?: string; proof?: string }
-    | null;
-
-  const submittedProof = payload?.proof?.trim() ?? "";
-  if (submittedProof) {
-    const verified = await verifyProof(expectedPasskey, submittedProof);
-    if (!verified) {
-      console.log("[verify-admin-passkey] Proof verification failed.");
-      return json(403, { valid: false, error: "Invalid proof." }, origin);
+  try {
+    const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "").trim();
+    if (!allowedRaw) {
+      console.error("[verify-admin-passkey] Missing ALLOWED_ORIGIN secret.");
+      return new Response(JSON.stringify({ error: "Server misconfigured (Missing ALLOWED_ORIGIN)." }), {
+        status: 500,
+        headers: { "content-type": "application/json", ...corsHeaders(origin || "*") },
+      });
     }
-    // Return the same proof back if valid, plus expiresAt
-    return json(200, { valid: true, proof: submittedProof, expiresAt: verified.exp }, origin);
+
+    const allowed = parseAllowedOrigins(allowedRaw);
+    const isAllowed = allowed.includes("*") || (origin && allowed.includes(origin));
+
+    if (!isAllowed) {
+      console.error(`[verify-admin-passkey] Forbidden origin: ${origin}`);
+      return new Response(JSON.stringify({ error: "Forbidden origin." }), {
+        status: 403,
+        headers: { "content-type": "application/json", ...corsHeaders(origin || "*") },
+      });
+    }
+
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+    if (req.method !== "POST") {
+      return json(405, { error: "Method not allowed" }, origin);
+    }
+
+    const expectedPasskey = (Deno.env.get("ADMIN_PASSKEY") ?? "").trim();
+    if (!expectedPasskey) {
+      console.error("[verify-admin-passkey] Missing ADMIN_PASSKEY secret.");
+      return json(500, { error: "Server misconfigured (Missing ADMIN_PASSKEY)." }, origin);
+    }
+
+    const payload = (await req.json().catch(() => null)) as
+      | { passkey?: string; proof?: string }
+      | null;
+
+    const submittedProof = payload?.proof?.trim() ?? "";
+    if (submittedProof) {
+      const verified = await verifyProof(expectedPasskey, submittedProof);
+      if (!verified) {
+        console.log("[verify-admin-passkey] Proof verification failed.");
+        return json(403, { valid: false, error: "Invalid proof." }, origin);
+      }
+      return json(200, { valid: true, proof: submittedProof, expiresAt: verified.exp }, origin);
+    }
+
+    const submittedPasskey = payload?.passkey?.trim() ?? "";
+    if (!submittedPasskey) {
+      return json(400, { error: "Passkey is required." }, origin);
+    }
+
+    if (!timingSafeEqual(submittedPasskey, expectedPasskey)) {
+      console.log("[verify-admin-passkey] Passkey mismatch.");
+      return json(403, { valid: false, error: "Invalid passkey." }, origin);
+    }
+
+    // Issue a short-lived proof (10 minutes).
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + 10 * 60;
+    const nonce = crypto.randomUUID();
+    const proof = await signProof(expectedPasskey, { v: 1, iat: now, exp, nonce });
+    
+    console.log("[verify-admin-passkey] Passkey verified, issuing proof.");
+    return json(200, { valid: true, proof, expiresAt: exp }, origin);
+
+  } catch (err: unknown) {
+    console.error("[verify-admin-passkey] Runtime error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: "Internal server error", details: message }), {
+      status: 500,
+      headers: { "content-type": "application/json", ...corsHeaders(origin || "*") },
+    });
   }
-
-  const submittedPasskey = payload?.passkey?.trim() ?? "";
-  if (!submittedPasskey) return json(400, { error: "Passkey is required." }, origin);
-
-  if (!timingSafeEqual(submittedPasskey, expectedPasskey)) {
-    console.log("[verify-admin-passkey] Passkey mismatch.");
-    return json(403, { valid: false, error: "Invalid passkey." }, origin);
-  }
-
-  // Issue a short-lived proof (10 minutes).
-  const now = Math.floor(Date.now() / 1000);
-  const exp = now + 10 * 60;
-  const nonce = crypto.randomUUID();
-  const proof = await signProof(expectedPasskey, { v: 1, iat: now, exp, nonce });
-  
-  console.log("[verify-admin-passkey] Passkey verified, issuing proof.");
-  return json(200, { valid: true, proof, expiresAt: exp }, origin);
 });
