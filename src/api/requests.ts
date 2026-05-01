@@ -127,27 +127,39 @@ export const requestsApi = {
   }) {
     const user = await requireUser();
 
-    const assignedOrgId = await this.resolveAutoAssignedOrgId({
+    let assignedOrgId: string | null = null;
+    try {
+      assignedOrgId = await this.resolveAutoAssignedOrgId({
+        borough: data.borough,
+        serviceId: data.service_id,
+      });
+    } catch (err) {
+      console.error("Auto-assignment failed:", err);
+    }
+
+    const payload = {
+      category: data.category,
       borough: data.borough,
-      serviceId: data.service_id,
-    });
+      description: data.description,
+      service_id: data.service_id,
+      member_id: user.id,
+      assigned_org_id: assignedOrgId,
+      need_categories: data.need_categories ?? [],
+      metadata: data.metadata ?? {},
+      status: assignedOrgId ? ("in_review" as RequestStatus) : ("new" as RequestStatus),
+    };
+
+    console.log("Submitting request payload:", payload);
 
     const { data: result, error } = await supabase
       .from("service_requests")
-      .insert({
-        category: data.category,
-        borough: data.borough,
-        description: data.description,
-        service_id: data.service_id,
-        member_id: user.id,
-        assigned_org_id: assignedOrgId,
-        need_categories: data.need_categories ?? [],
-        metadata: data.metadata ?? {},
-        status: assignedOrgId ? ("in_review" as RequestStatus) : ("new" as RequestStatus),
-      })
+      .insert(payload)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error("Submit request error:", error);
+      throw new Error(error.message);
+    }
     return result;
   },
 

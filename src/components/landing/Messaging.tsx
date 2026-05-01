@@ -2,14 +2,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Clock, MessageSquare, ShieldCheck } from "lucide-react";
 import { classNames } from "./utils";
 
-function TrustItem({ title, body, icon: Icon }: { title: string; body: string; icon: React.ElementType }) {
+function TrustItem({
+  title,
+  body,
+  icon: Icon,
+}: {
+  title: string;
+  body: string;
+  icon: React.ElementType;
+}) {
   return (
     <li className="flex items-center gap-x-3">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-400/20 bg-teal-400/10 text-teal-200">
-        <Icon className="w-5 h-5 flex-shrink-0" />
+      {/* CHANGE: icon bg uses semi-transparent teal to work on navy-light bg */}
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-400/25 bg-teal-400/12 text-teal-300">
+        <Icon className="h-5 w-5 flex-shrink-0" />
       </span>
-      <span className="text-sm leading-relaxed text-slate-300">
-        <strong className="text-slate-100">{title}</strong> {body}
+      <span className="text-sm leading-relaxed text-white/60">
+        {/* CHANGE: strong color changed from slate-100 to white */}
+        <strong className="text-white">{title}</strong> {body}
       </span>
     </li>
   );
@@ -161,10 +171,8 @@ export function Messaging() {
 
     const run = () => {
       reset();
-
       typeText(m1.text, 28, setM1Typed, () => {
         setShowT1(true);
-
         after(800, () => {
           setShowM2(true);
           after(300, () => {
@@ -185,28 +193,26 @@ export function Messaging() {
 
     const startTimer = window.setTimeout(run, 600);
     timeoutsRef.current.push(startTimer);
-
     return () => clearTimers();
   }, [initial]);
 
   const send = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-
     setDraft("");
   };
 
   return (
-    <section id="mission" className="bg-slate-950 px-4 py-20 md:px-12">
+    <section id="mission" className="bg-[#1a3048] px-4 py-20 md:px-12">
       <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-14 md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-20">
         <div className="space-y-6">
           <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-teal-300">
             Real connections
           </div>
           <h2 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl md:text-[44px]">
-            You’re not navigating this alone.
+            You're not navigating this alone.
           </h2>
-          <p className="max-w-md text-[15px] leading-relaxed text-slate-300 sm:text-[16px]">
+          <p className="max-w-md text-[15px] leading-relaxed text-white/55 sm:text-[16px]">
             Every request reaches a real person at a verified organization —
             ready to help.
           </p>
@@ -217,7 +223,7 @@ export function Messaging() {
           </ul>
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/40 p-2">
+        <div className="rounded-3xl border border-white/8 bg-white/4 p-2">
           <div className="rounded-2xl bg-slate-50 p-4 sm:p-6">
             <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
               <div className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-violet-400 text-sm font-extrabold text-white">
@@ -237,48 +243,16 @@ export function Messaging() {
               </span>
             </div>
 
-            <div className="h-[480px] overflow-hidden flex flex-col gap-3 pt-4">
-              <ChatBubble
-                inbound
-                sender={initial[0].sender}
-                text={m1Typed}
-                time={initial[0].time}
-              />
-              <div
-                className={classNames(
-                  "transition-all duration-300",
-                  showT1 ? "opacity-100" : "opacity-0",
-                )}
-              >
+            <div className="flex h-[480px] flex-col gap-3 overflow-hidden pt-4">
+              <ChatBubble inbound sender={initial[0].sender} text={m1Typed} time={initial[0].time} />
+              <div className={classNames("transition-all duration-300", showT1 ? "opacity-100" : "opacity-0")}>
                 <div className="mt-[-10px]" />
               </div>
-
-              <div
-                className={classNames(
-                  "transition-all duration-300",
-                  showM2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5",
-                )}
-              >
-                <ChatBubble
-                  inbound={false}
-                  sender={initial[1].sender}
-                  text={m2Typed}
-                  time={initial[1].time}
-                />
+              <div className={classNames("transition-all duration-300", showM2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5")}>
+                <ChatBubble inbound={false} sender={initial[1].sender} text={m2Typed} time={initial[1].time} />
               </div>
-
-              <div
-                className={classNames(
-                  "transition-all duration-300",
-                  showM3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5",
-                )}
-              >
-                <ChatBubble
-                  inbound
-                  sender={initial[2].sender}
-                  text={m3Typed}
-                  time={initial[2].time}
-                />
+              <div className={classNames("transition-all duration-300", showM3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1.5")}>
+                <ChatBubble inbound sender={initial[2].sender} text={m3Typed} time={initial[2].time} />
               </div>
             </div>
 
@@ -286,19 +260,14 @@ export function Messaging() {
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
                 placeholder="Type a message..."
                 className="h-10 flex-1 rounded-full border border-gray-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
               />
               <button
                 type="button"
                 onClick={send}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white transition hover:bg-teal-700"
                 aria-label="Send message"
               >
                 <ChevronRight className="h-5 w-5 rotate-[-45deg]" />
@@ -310,4 +279,3 @@ export function Messaging() {
     </section>
   );
 }
-

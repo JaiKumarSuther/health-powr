@@ -58,7 +58,8 @@ export function ApplicationFormSheet({
         />
 
         <div
-          style={{ flex: 1, overflowY: "auto", padding: "16px 20px 40px" }}
+          style={{ flex: 1, overflowY: "auto", paddingBottom: "40px" }}
+          className="w-full overflow-hidden"
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >

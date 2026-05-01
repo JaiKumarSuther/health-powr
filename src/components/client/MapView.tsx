@@ -23,6 +23,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { usePublicServices } from "../../hooks/useServices";
 import { ApplicationFormSheet } from "./ApplicationFormSheet";
+import { ServiceCard, Service } from "./ServiceCard";
+import { supabase } from "../../lib/supabase";
 
 const DEFAULT_CENTER: [number, number] = [40.7128, -74.006]; // NYC
 
@@ -42,16 +44,16 @@ const MAP_CATEGORIES: Array<{
   label: string;
   icon: React.ElementType;
 }> = [
-  { value: "all", label: "All", icon: LayoutGrid },
-  { value: "food", label: "Food", icon: ShoppingBag },
-  { value: "housing", label: "Housing", icon: Home },
-  { value: "healthcare", label: "Healthcare", icon: Heart },
-  { value: "job_training", label: "Employment", icon: Briefcase },
-  { value: "legal", label: "Legal", icon: Scale },
-  { value: "education", label: "Education", icon: BookOpen },
-  { value: "mental_health", label: "Mental Health", icon: Brain },
-  { value: "childcare", label: "Childcare", icon: Baby },
-];
+    { value: "all", label: "All", icon: LayoutGrid },
+    { value: "food", label: "Food", icon: ShoppingBag },
+    { value: "housing", label: "Housing", icon: Home },
+    { value: "healthcare", label: "Healthcare", icon: Heart },
+    { value: "job_training", label: "Employment", icon: Briefcase },
+    { value: "legal", label: "Legal", icon: Scale },
+    { value: "education", label: "Education", icon: BookOpen },
+    { value: "mental_health", label: "Mental Health", icon: Brain },
+    { value: "childcare", label: "Childcare", icon: Baby },
+  ];
 
 type SheetSort = "open_first" | "nearest" | "az";
 
@@ -199,7 +201,24 @@ export function MapView() {
     setActiveCategory(category);
     // Open the sheet immediately; results will refresh on map move/data load.
     const filtered = computeServicesInViewport(category);
-    setSheetServices(filtered);
+    const mapped = filtered.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      description: r.description ?? "",
+      location: r.organization?.borough ?? "",
+      orgLat: (r.organization as any)?.latitude ?? null,
+      orgLng: (r.organization as any)?.longitude ?? null,
+      is_available: !!r.is_available,
+      openHours: r.hours ?? "",
+      eligibility: r.eligibility ?? "",
+      phone: r.organization?.phone ?? "",
+      boroughArea: r.organization?.borough ?? "",
+      organization: r.organization?.name ?? "",
+      logoUrl: (r.organization as any)?.logo_url ?? null,
+      imageUrl: r.image_url ?? null,
+    }));
+    setSheetServices(mapped);
     setIsSheetOpen(true);
   }
 
@@ -213,10 +232,10 @@ export function MapView() {
       case "nearest":
         if (!here) return list;
         return list.sort((a: any, b: any) => {
-          const aLat = a.organization?.latitude ?? a.latitude;
-          const aLng = a.organization?.longitude ?? a.longitude;
-          const bLat = b.organization?.latitude ?? b.latitude;
-          const bLng = b.organization?.longitude ?? b.longitude;
+          const aLat = a.orgLat;
+          const aLng = a.orgLng;
+          const bLat = b.orgLat;
+          const bLng = b.orgLng;
           if (aLat == null || aLng == null) return 1;
           if (bLat == null || bLng == null) return -1;
           const da = haversineKm(here, { lat: aLat, lng: aLng });
@@ -226,19 +245,44 @@ export function MapView() {
       case "open_first":
       default:
         return list.sort((a: any, b: any) => {
-          if (a.is_available && !b.is_available) return -1;
-          if (!a.is_available && b.is_available) return 1;
+          const aOpen = a.is_available;
+          const bOpen = b.is_available;
+          if (aOpen && !bOpen) return -1;
+          if (!aOpen && bOpen) return 1;
           return String(a.name).localeCompare(String(b.name));
         });
     }
   }, [sheetServices, sheetSortBy, userCoords]);
+
+  const getDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    return haversineKm({ lat: lat1, lng: lon1 }, { lat: lat2, lng: lon2 });
+  };
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (!isSheetOpen) return;
     const onMoveEnd = () => {
-      setSheetServices(computeServicesInViewport(activeCategory));
+      const inView = computeServicesInViewport(activeCategory);
+      const mapped = inView.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+        description: r.description ?? "",
+        location: r.organization?.borough ?? "",
+        orgLat: (r.organization as any)?.latitude ?? null,
+        orgLng: (r.organization as any)?.longitude ?? null,
+        is_available: !!r.is_available,
+        openHours: r.hours ?? "",
+        eligibility: r.eligibility ?? "",
+        phone: r.organization?.phone ?? "",
+        boroughArea: r.organization?.borough ?? "",
+        organization: r.organization?.name ?? "",
+        logoUrl: (r.organization as any)?.logo_url ?? null,
+        imageUrl: r.image_url ?? null,
+      }));
+      setSheetServices(mapped);
     };
     map.on("moveend", onMoveEnd);
     return () => {
@@ -249,7 +293,25 @@ export function MapView() {
   useEffect(() => {
     // When the query refetches after a category change, refresh the sheet list.
     if (!isSheetOpen) return;
-    setSheetServices(computeServicesInViewport(activeCategory));
+    const inView = computeServicesInViewport(activeCategory);
+    const mapped = inView.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      category: r.category,
+      description: r.description ?? "",
+      location: r.organization?.borough ?? "",
+      orgLat: (r.organization as any)?.latitude ?? null,
+      orgLng: (r.organization as any)?.longitude ?? null,
+      is_available: !!r.is_available,
+      openHours: r.hours ?? "",
+      eligibility: r.eligibility ?? "",
+      phone: r.organization?.phone ?? "",
+      boroughArea: r.organization?.borough ?? "",
+      organization: r.organization?.name ?? "",
+      logoUrl: (r.organization as any)?.logo_url ?? null,
+      imageUrl: r.image_url ?? null,
+    }));
+    setSheetServices(mapped);
   }, [allServices, activeCategory, isSheetOpen]);
 
   function handleServiceSelect(svc: any) {
@@ -277,7 +339,24 @@ export function MapView() {
           map.once("moveend", () => {
             const inView = computeServicesInViewport(activeCategory);
             if (inView.length > 0) {
-              setSheetServices(inView);
+              const mapped = inView.map((r: any) => ({
+                id: r.id,
+                name: r.name,
+                category: r.category,
+                description: r.description ?? "",
+                location: r.organization?.borough ?? "",
+                orgLat: (r.organization as any)?.latitude ?? null,
+                orgLng: (r.organization as any)?.longitude ?? null,
+                is_available: !!r.is_available,
+                openHours: r.hours ?? "",
+                eligibility: r.eligibility ?? "",
+                phone: r.organization?.phone ?? "",
+                boroughArea: r.organization?.borough ?? "",
+                organization: r.organization?.name ?? "",
+                logoUrl: (r.organization as any)?.logo_url ?? null,
+                imageUrl: r.image_url ?? null,
+              }));
+              setSheetServices(mapped);
               setIsSheetOpen(true);
               return;
             }
@@ -293,7 +372,24 @@ export function MapView() {
               })
               .filter(Boolean) as Array<{ svc: any; km: number }>;
             nearest.sort((a, b) => a.km - b.km);
-            setSheetServices(nearest.slice(0, 25).map((x) => x.svc));
+            const mappedNearest = nearest.slice(0, 25).map((x) => ({
+              id: x.svc.id,
+              name: x.svc.name,
+              category: x.svc.category,
+              description: x.svc.description ?? "",
+              location: x.svc.organization?.borough ?? "",
+              orgLat: (x.svc.organization as any)?.latitude ?? null,
+              orgLng: (x.svc.organization as any)?.longitude ?? null,
+              is_available: !!x.svc.is_available,
+              openHours: x.svc.hours ?? "",
+              eligibility: x.svc.eligibility ?? "",
+              phone: x.svc.organization?.phone ?? "",
+              boroughArea: x.svc.organization?.borough ?? "",
+              organization: x.svc.organization?.name ?? "",
+              logoUrl: (x.svc.organization as any)?.logo_url ?? null,
+              imageUrl: x.svc.image_url ?? null,
+            }));
+            setSheetServices(mappedNearest);
             setIsSheetOpen(true);
           });
 
@@ -370,7 +466,24 @@ export function MapView() {
                 }}
                 eventHandlers={{
                   click: () => {
-                    setSheetServices([svc]);
+                    const mapped = {
+                      id: svc.id,
+                      name: svc.name,
+                      category: svc.category,
+                      description: svc.description ?? "",
+                      location: svc.organization?.borough ?? "",
+                      orgLat: (svc.organization as any)?.latitude ?? null,
+                      orgLng: (svc.organization as any)?.longitude ?? null,
+                      is_available: !!svc.is_available,
+                      openHours: svc.hours ?? "",
+                      eligibility: svc.eligibility ?? "",
+                      phone: svc.organization?.phone ?? "",
+                      boroughArea: svc.organization?.borough ?? "",
+                      organization: svc.organization?.name ?? "",
+                      logoUrl: (svc.organization as any)?.logo_url ?? null,
+                      imageUrl: svc.image_url ?? null,
+                    };
+                    setSheetServices([mapped]);
                     setIsSheetOpen(true);
                   },
                 }}
@@ -419,11 +532,10 @@ export function MapView() {
                 key={cat.value}
                 type="button"
                 onClick={() => handleCategorySelect(cat.value)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm border transition-all flex-shrink-0 ${
-                  isActive
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm border transition-all flex-shrink-0 ${isActive
                     ? "bg-teal-600 border-teal-600 text-white shadow-teal-200"
                     : "bg-white/95 backdrop-blur border-slate-200 text-slate-700 hover:border-teal-300"
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" strokeWidth={2} />
                 {cat.label}
@@ -487,7 +599,7 @@ export function MapView() {
       <div
         className="absolute left-0 right-0 bottom-0 z-[2000] bg-white rounded-t-3xl flex flex-col"
         style={{
-          maxHeight: "60vh",
+          height: isSheetOpen ? "75vh" : "0",
           transform: isSheetOpen ? "translateY(0)" : "translateY(100%)",
           transition: "transform 0.4s cubic-bezier(0.34,1.1,0.64,1)",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.15)",
@@ -531,64 +643,24 @@ export function MapView() {
               <p className="text-xs text-slate-300 mt-1">Try zooming out or changing the filter.</p>
             </div>
           ) : (
-            sortedSheetServices.map((svc: any) => {
-              const CatIcon =
-                CATEGORY_ICON[(svc.category as MapCategory) ?? "all"] ?? LayoutGrid;
-              const imgUrl = (svc as any)?.image_url ?? null;
-              return (
-              <div
-                key={svc.id}
-                onClick={() => handleServiceSelect(svc)}
-                className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-teal-200 hover:bg-teal-50/50 cursor-pointer transition-all"
-              >
-                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                  {imgUrl ? (
-                    <img
-                      src={imgUrl}
-                      alt={svc.name ?? "Service"}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        // If image fails, fall back to icon
-                        e.currentTarget.style.display = "none";
-                        (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("style");
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className={`${imgUrl ? "hidden" : ""} w-full h-full flex items-center justify-center`}
-                    style={imgUrl ? { display: "none" } : undefined}
-                  >
-                    <CatIcon className="w-5 h-5 text-teal-600" strokeWidth={2} />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-slate-900 truncate">{svc.name}</div>
-                  <div className="text-xs text-slate-400 truncate mt-0.5">
-                    {svc.organization?.name ?? "Organization"} · {svc.organization?.borough ?? "New York"}
-                  </div>
-                </div>
-                <div
-                  className={`text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${
-                    svc.is_available ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
-                  }`}
-                >
-                  {svc.is_available ? "Open" : "Limited"}
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleApply(String(svc.id));
-                  }}
-                  className="ml-1 text-[10px] font-bold px-2.5 py-1.5 rounded-full bg-teal-600 text-white hover:bg-teal-700 transition-colors flex-shrink-0"
-                >
-                  Apply
-                </button>
-              </div>
-              );
-            })
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
+              {sortedSheetServices.map((service: Service) => {
+                const distance = userCoords
+                  ? getDistanceKm(userCoords.lat, userCoords.lng, service.orgLat!, service.orgLng!)
+                  : null;
+                return (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    distance={distance}
+                    onApply={handleApply}
+                    onCopyPhone={(phone) => {
+                      navigator.clipboard.writeText(phone);
+                    }}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

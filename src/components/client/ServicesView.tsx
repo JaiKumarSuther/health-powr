@@ -21,10 +21,12 @@ import {
   Brain as BrainIcon,
   CheckCircle,
 } from "lucide-react";
+import { ServiceCard, Service } from "./ServiceCard";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePublicServices } from "../../hooks/useServices";
 import { ApplicationFormSheet } from "./ApplicationFormSheet";
+import { useFavorites } from "../../api/favorites";
 import { useNavigate } from "react-router-dom";
 
 function useDebounce<T>(value: T, delay = 300) {
@@ -36,83 +38,7 @@ function useDebounce<T>(value: T, delay = 300) {
   return debounced;
 }
 
-interface Service {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  location: string;
-  orgLat?: number | null;
-  orgLng?: number | null;
-  rating: number;
-  availability: "Available" | "Waitlist" | "Limited" | "Unavailable";
-  openHours: string;
-  eligibility: string;
-  phone: string;
-  boroughArea: string;
-  organization: string;
-  logoUrl?: string | null;
-  imageUrl?: string | null;
-}
-
-const categoryIcons: Record<string, React.ElementType> = {
-  housing: Home,
-  food: Utensils,
-  healthcare: HeartPulse,
-  job_training: Briefcase,
-  education: BookOpen,
-  legal: Scale,
-  mental_health: BrainIcon,
-};
-
-const CATEGORY_BG: Record<string, string> = {
-  housing: "bg-slate-50",
-  food: "bg-emerald-50",
-  healthcare: "bg-rose-50",
-  job_training: "bg-amber-50",
-  education: "bg-indigo-50",
-  legal: "bg-violet-50",
-  mental_health: "bg-sky-50",
-  childcare: "bg-teal-50",
-  other: "bg-slate-50",
-};
-
-function ServiceIconBanner({
-  category,
-  logoUrl,
-  imageUrl,
-  orgName,
-}: {
-  category: string;
-  logoUrl?: string | null;
-  imageUrl?: string | null;
-  orgName?: string | null;
-}) {
-  const Icon = categoryIcons[category] ?? Home;
-  return (
-    <div className="rounded-t-2xl overflow-hidden">
-      {(imageUrl || logoUrl) ? (
-        <img
-          src={imageUrl || logoUrl || ""}
-          alt={orgName ?? ""}
-          className="w-full h-[140px] object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-            (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("style");
-          }}
-        />
-      ) : null}
-      <div
-        className={`w-full h-[140px] flex items-center justify-center ${imageUrl || logoUrl ? "hidden" : ""} ${
-          CATEGORY_BG[category] ?? "bg-slate-50"
-        }`}
-        style={imageUrl || logoUrl ? { display: "none" } : undefined}
-      >
-        <Icon className="w-10 h-10 opacity-40 text-slate-500" strokeWidth={1.5} />
-      </div>
-    </div>
-  );
-}
+// Reusable components moved to ServiceCard.tsx
 
 type SortOption = "default" | "nearest" | "az";
 
@@ -128,29 +54,14 @@ const SORT_LABELS: Record<SortOption, string> = {
   az: "A – Z",
 };
 
-function AvailabilityBadge({ status }: { status: Service["availability"] }) {
-  const styles: Record<Service["availability"], string> = {
-    Available: "bg-teal-600 text-white",
-    Limited: "bg-[#FFFBEB] text-[#B45309]",
-    Waitlist: "bg-[#FFFBEB] text-[#B45309]",
-    Unavailable: "bg-[#F9FAFB] text-[#6B7280]",
-  };
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-medium ${styles[status]}`}
-    >
-      {status}
-    </span>
-  );
-}
-
 export function ServicesView() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedBorough, setSelectedBorough] = useState("all");
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const { data: favoriteIds = [] } = useFavorites();
   const [formServiceId, setFormServiceId] = useState<string | null>(null);
   const [isFormSheetOpen, setIsFormSheetOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -295,9 +206,6 @@ export function ServicesView() {
   const services: Service[] = useMemo(() => {
     const rows = publicServicesQuery.data ?? [];
     return rows.map((r) => {
-      const availability: Service["availability"] = r.is_available
-        ? "Available"
-        : "Unavailable";
       return {
         id: r.id,
         name: r.name,
@@ -307,8 +215,7 @@ export function ServicesView() {
         location: r.organization?.borough ?? "",
         orgLat: (r.organization as any)?.latitude ?? null,
         orgLng: (r.organization as any)?.longitude ?? null,
-        rating: 4.6, // best-effort default until ratings are implemented
-        availability,
+        is_available: !!r.is_available,
         openHours: r.hours ?? "",
         eligibility: r.eligibility ?? "",
         phone: r.organization?.phone ?? "",
@@ -348,6 +255,9 @@ export function ServicesView() {
         .toLowerCase()
         .includes(debouncedSearch.toLowerCase()) ||
       service.description.toLowerCase().includes(debouncedSearch.toLowerCase());
+    
+    if (showFavoritesOnly && !favoriteIds.includes(service.id)) return false;
+    
     return matchesSearch;
   });
 
@@ -372,8 +282,8 @@ export function ServicesView() {
       case "default":
       default:
         return list.sort((a, b) => {
-          const aOpen = a.availability === "Available";
-          const bOpen = b.availability === "Available";
+          const aOpen = a.is_available;
+          const bOpen = b.is_available;
           if (aOpen && !bOpen) return -1;
           if (!aOpen && bOpen) return 1;
           return a.name.localeCompare(b.name);
@@ -381,14 +291,7 @@ export function ServicesView() {
     }
   }, [filteredServices, sortBy, userCoords]);
 
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  // Replaced manual favorites logic with useFavorites and useToggleFavorite hooks inside ServiceCard
 
   const handleCopyPhone = (phone: string) => {
     navigator.clipboard.writeText(phone).then(() => {
@@ -454,8 +357,15 @@ export function ServicesView() {
               className="w-full pl-9 pr-4 h-11 bg-gray-50 border border-gray-200 rounded-[10px] text-[14px] text-gray-900 placeholder-gray-400 focus:bg-white focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 outline-none transition-all"
             />
           </div>
-          <div className="flex gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 h-11 border border-gray-200 rounded-[10px] text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:border-teal-600 hover:text-teal-600 transition-all"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Filters</span>
+            </button>
+            <div className="relative flex-shrink-0">
               <button
                 type="button"
                 onClick={(e) => {
@@ -505,13 +415,6 @@ export function ServicesView() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 h-11 border border-gray-200 rounded-[10px] text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:border-teal-600 hover:text-teal-600 transition-all flex-shrink-0"
-            >
-              <Filter className="w-4 h-4" />
-              <span>Filters</span>
-            </button>
             {showFilters && (
               <select
                 value={selectedBorough}
@@ -543,6 +446,17 @@ export function ServicesView() {
               {cat.label}
             </button>
           ))}
+          <button
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+              showFavoritesOnly
+                ? "border-red-400 bg-red-50 text-red-600"
+                : "bg-white text-gray-500 border-gray-200 hover:border-red-600 hover:text-red-600 hover:bg-red-50"
+            }`}
+          >
+            <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-red-500 text-red-500" : ""}`} />
+            Favorites
+          </button>
         </div>
       </div>
 
@@ -566,94 +480,18 @@ export function ServicesView() {
           {sortedServices.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {sortedServices.map((service) => {
-                const isFav = favorites.has(service.id);
                 const distance =
                   userCoords && sortBy === "nearest" && service.orgLat && service.orgLng
                     ? getDistanceKm(userCoords.lat, userCoords.lng, service.orgLat, service.orgLng)
                     : null;
                 return (
-                  <div
+                  <ServiceCard
                     key={service.id}
-                    className="bg-white rounded-2xl border border-gray-200 shadow-[0_1px_3px_rgba(0,0,0,0.06)] overflow-hidden flex flex-col transition-all duration-200 hover:shadow-[0_8px_20px_rgba(13,148,136,0.10)] hover:border-teal-200 hover:-translate-y-0.5"
-                  >
-                    <ServiceIconBanner
-                      category={service.category}
-                      logoUrl={service.logoUrl}
-                      imageUrl={service.imageUrl}
-                      orgName={service.organization}
-                    />
-                    <div className="p-5 flex flex-col flex-1">
-                      <div className="flex items-start justify-between mb-1">
-                        <h3 className="text-[15px] font-bold text-gray-900 leading-snug flex-1 pr-2">
-                          {service.name}
-                        </h3>
-                        <button
-                          onClick={() => toggleFavorite(service.id)}
-                          className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-red-50 flex-shrink-0"
-                        >
-                          <Heart
-                            className={`w-4 h-4 transition-colors ${isFav ? "fill-red-500 text-red-500" : "text-gray-300"}`}
-                          />
-                        </button>
-                      </div>
-                      <p className="text-[13px] font-medium text-teal-600 mb-2.5 hover:underline cursor-pointer">
-                        {service.organization}
-                      </p>
-                      <div className="flex items-center gap-2 mb-3">
-                        <AvailabilityBadge status={service.availability} />
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                          <span className="text-[12px] font-medium text-gray-600">
-                            {service.rating}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[13px] text-gray-500 leading-relaxed mb-3 line-clamp-2 flex-1">
-                        {service.description}
-                      </p>
-                      <div className="space-y-1.5 mb-4">
-                        <div className="flex items-center gap-2 text-[12px] text-gray-500">
-                          <MapPin className="w-[13px] h-[13px] text-gray-400 flex-shrink-0" />
-                          <span>{service.location || "New York"}</span>
-                          {distance !== null && (
-                            <>
-                              <span className="text-slate-300">·</span>
-                              <span className="text-teal-600 font-medium">
-                                {distance < 1
-                                  ? `${(distance * 1000).toFixed(0)}m`
-                                  : `${distance.toFixed(1)}km`}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[12px] text-gray-500">
-                          <Clock className="w-[13px] h-[13px] text-gray-400 flex-shrink-0" />
-                          <span>{service.openHours}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[12px] text-gray-500">
-                          <Users className="w-[13px] h-[13px] text-gray-400 flex-shrink-0" />
-                          <span className="truncate">
-                            {service.eligibility}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex gap-2.5 mt-auto">
-                        <button
-                          onClick={() => handleApply(service.id)}
-                          className="flex-1 h-11 bg-teal-600 text-white rounded-[10px] font-semibold text-[13px] hover:bg-teal-700 transition-colors flex items-center justify-center gap-1.5 shadow-[0_2px_8px_rgba(13,148,136,0.20)]"
-                        >
-                          Request Now
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleCopyPhone(service.phone)}
-                          className="w-11 h-11 rounded-[10px] border border-gray-200 bg-white flex items-center justify-center text-gray-400 hover:border-teal-600 hover:text-teal-600 transition-all flex-shrink-0"
-                        >
-                          <Phone className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                    service={service}
+                    distance={distance}
+                    onApply={handleApply}
+                    onCopyPhone={handleCopyPhone}
+                  />
                 );
               })}
             </div>
@@ -666,6 +504,11 @@ export function ServicesView() {
               <p className="text-gray-400 text-[14px]">
                 Try adjusting your search or category filter.
               </p>
+              {showFavoritesOnly && (
+                <p className="text-gray-400 text-[14px] mt-2">
+                  Tap the heart on any service to save it here.
+                </p>
+              )}
             </div>
           )}
         </>

@@ -38,9 +38,11 @@ type ServiceInfo = {
   name: string;
   category: ServiceCategory;
   is_available: boolean;
+  image_url?: string;
   organizations: {
     name: string;
     borough: string;
+    logo_url?: string;
   } | null;
 };
 
@@ -229,7 +231,7 @@ export function ApplicationFormContent({
         setServiceError(null);
         const { data, error } = await supabase
           .from("services")
-          .select("id, name, category, is_available, organizations:organization_id(name, borough)")
+          .select("id, name, category, is_available, image_url, organizations:organization_id(name, borough, logo_url)")
           .eq("id", serviceId)
           .maybeSingle();
         if (cancelled) return;
@@ -395,8 +397,14 @@ export function ApplicationFormContent({
     );
   }
 
+  const heroImage = service.image_url || service.organizations?.logo_url;
+
   return (
-    <div ref={bodyRef}>
+    <div ref={bodyRef} className="w-full">
+      {heroImage && (
+        <img src={heroImage} className="w-full h-48 object-cover" alt={service.name} />
+      )}
+      <div className="px-6 pt-4">
       {screen === "success" && (
         <div className="w-full py-10 text-center">
           <div className="w-[72px] h-[72px] rounded-full bg-[#dcfce7] flex items-center justify-center mx-auto mb-6">
@@ -423,7 +431,7 @@ export function ApplicationFormContent({
       )}
 
       {screen === "step1" && (
-        <div className="w-full pt-2">
+        <div className="w-full">
           <button
             type="button"
             onClick={onCancel}
@@ -461,8 +469,8 @@ export function ApplicationFormContent({
               </div>
 
               <div className="mb-5">
-                <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">
-                  What type of support do you need?
+                <label className={fieldLabel}>
+                  What type of support do you need? <span className="text-[#dc2626] ml-0.5">*</span>
                 </label>
                 <p className="text-xs text-slate-400 mb-3">
                   Select all that apply — this helps organizations prioritize your request.
@@ -572,7 +580,7 @@ export function ApplicationFormContent({
       )}
 
       {screen === "step2" && (
-        <div className="w-full pt-2">
+        <div className="w-full">
           <button
             type="button"
             onClick={() => {
@@ -726,6 +734,7 @@ export function ApplicationFormContent({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
