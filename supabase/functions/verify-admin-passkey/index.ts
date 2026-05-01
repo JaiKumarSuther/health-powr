@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
   }
   if (req.method !== "POST") return json(405, { error: "Method not allowed" }, origin);
 
-  const expectedPasskey = Deno.env.get("ADMIN_PASSKEY");
+  const expectedPasskey = (Deno.env.get("ADMIN_PASSKEY") ?? "").trim();
   if (!expectedPasskey) {
     console.error("[verify-admin-passkey] Missing ADMIN_PASSKEY secret.");
     return json(500, { error: "Server misconfigured." }, origin);
@@ -143,14 +143,19 @@ Deno.serve(async (req) => {
   const submittedProof = payload?.proof?.trim() ?? "";
   if (submittedProof) {
     const verified = await verifyProof(expectedPasskey, submittedProof);
-    if (!verified) return json(403, { valid: false, error: "Invalid proof." }, origin);
-    return json(200, { valid: true, expiresAt: verified.exp }, origin);
+    if (!verified) {
+      console.log("[verify-admin-passkey] Proof verification failed.");
+      return json(403, { valid: false, error: "Invalid proof." }, origin);
+    }
+    // Return the same proof back if valid, plus expiresAt
+    return json(200, { valid: true, proof: submittedProof, expiresAt: verified.exp }, origin);
   }
 
   const submittedPasskey = payload?.passkey?.trim() ?? "";
   if (!submittedPasskey) return json(400, { error: "Passkey is required." }, origin);
 
   if (!timingSafeEqual(submittedPasskey, expectedPasskey)) {
+    console.log("[verify-admin-passkey] Passkey mismatch.");
     return json(403, { valid: false, error: "Invalid passkey." }, origin);
   }
 
@@ -159,5 +164,7 @@ Deno.serve(async (req) => {
   const exp = now + 10 * 60;
   const nonce = crypto.randomUUID();
   const proof = await signProof(expectedPasskey, { v: 1, iat: now, exp, nonce });
+  
+  console.log("[verify-admin-passkey] Passkey verified, issuing proof.");
   return json(200, { valid: true, proof, expiresAt: exp }, origin);
 });

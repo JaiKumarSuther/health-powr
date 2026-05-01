@@ -43,12 +43,18 @@ export default function AdminPasskeyPage() {
 
       const data = (await res.json().catch(() => null)) as PasskeyResponse;
 
-      if (!res.ok || !data || data.valid !== true || !('proof' in data) || !data.proof || !data.expiresAt) {
+      if (!res.ok || !data || data.valid !== true || !data.proof || !data.expiresAt) {
+        console.error('[AdminPasskey] Verification failed:', { 
+          status: res.status, 
+          ok: res.ok, 
+          data 
+        });
+
         const msg =
           !data
             ? 'Invalid passkey.'
             : data.valid === true
-              ? 'Invalid passkey.'
+              ? 'Security proof missing. Please try again.'
               : (data.error ?? 'Invalid passkey.');
         setError(msg);
         return;
