@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "./BrandMark";
 
@@ -11,6 +11,21 @@ export function NavBar({
   onJoin: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleScrollTo = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    setOpen(false);
+    if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      }, 400);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -34,13 +49,25 @@ export function NavBar({
         </Link>
 
         <nav className="hidden items-center gap-9 text-sm font-semibold text-slate-600 md:flex">
-          <a className="hover:text-teal-600" href="#how-it-works">
+          <a
+            className="hover:text-teal-600"
+            href="#how-it-works"
+            onClick={(e) => handleScrollTo(e, "how-it-works")}
+          >
             How it works
           </a>
-          <a className="hover:text-teal-600" href="#for-organizations">
+          <a
+            className="hover:text-teal-600"
+            href="#for-organizations"
+            onClick={(e) => handleScrollTo(e, "for-organizations")}
+          >
             For organizations
           </a>
-          <a className="hover:text-teal-600" href="#mission">
+          <a
+            className="hover:text-teal-600"
+            href="#mission"
+            onClick={(e) => handleScrollTo(e, "mission")}
+          >
             Mission
           </a>
         </nav>
@@ -87,21 +114,21 @@ export function NavBar({
               <a
                 className="rounded-xl px-3 py-3 hover:bg-teal-50 hover:text-teal-800"
                 href="#how-it-works"
-                onClick={() => setOpen(false)}
+                onClick={(e) => handleScrollTo(e, "how-it-works")}
               >
                 How it works
               </a>
               <a
                 className="rounded-xl px-3 py-3 hover:bg-teal-50 hover:text-teal-800"
                 href="#for-organizations"
-                onClick={() => setOpen(false)}
+                onClick={(e) => handleScrollTo(e, "for-organizations")}
               >
                 For organizations
               </a>
               <a
                 className="rounded-xl px-3 py-3 hover:bg-teal-50 hover:text-teal-800"
                 href="#mission"
-                onClick={() => setOpen(false)}
+                onClick={(e) => handleScrollTo(e, "mission")}
               >
                 Mission
               </a>

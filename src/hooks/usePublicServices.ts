@@ -4,6 +4,7 @@ import { getPublicServices } from "../api/services";
 export function usePublicServices(filters?: {
   category?: string;
   borough?: string;
+  searchText?: string;
 }) {
   return useQuery({
     queryKey: ["public-services", filters],

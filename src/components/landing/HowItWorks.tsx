@@ -563,9 +563,14 @@ function CTAFooter() {
         <button className="rounded-full bg-teal-600 px-8 py-4 text-sm font-extrabold text-white transition-all duration-200 hover:bg-teal-700 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-4px_rgba(13,148,136,0.3)]">
           Find resources →
         </button>
-        <button className="rounded-full border border-white/20 bg-white/10 px-8 py-4 text-sm font-extrabold text-white transition-all duration-200 hover:bg-white/20">
+        <a 
+          href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-8 py-4 text-sm font-extrabold text-white transition-all duration-200 hover:bg-white/20"
+        >
           For organizations
-        </button>
+        </a>
       </div>
     </div>
   );
@@ -583,7 +588,7 @@ export default function HowItWorks() {
         }
       `}</style>
 
-      <section className="w-full font-sans bg-emerald-950">
+      <section id="how-it-works" className="w-full font-sans bg-emerald-950">
         {/* Section header */}
         <div className="bg-transparent px-12 py-[72px] text-center">
           <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[.06em] text-teal-400">

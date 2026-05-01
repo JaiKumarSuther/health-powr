@@ -43,12 +43,14 @@ export function CTA({
         <p className="max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
           Search for resources near you — your community is ready to help. Or if
           you’re an organization,{" "}
-          <button
-            onClick={onIntro}
+          <a
+            href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04"
+            target="_blank"
+            rel="noopener noreferrer"
             className="font-extrabold text-teal-300 transition hover:text-teal-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/30 rounded"
           >
             let’s talk.
-          </button>
+          </a>
         </p>
 
         <div
@@ -114,12 +116,14 @@ export function CTA({
             <br />
             Join the HealthPowr network and start receiving requests.
           </p>
-          <button
-            onClick={onIntro}
-            className="h-12 rounded-full bg-teal-600 px-8 text-sm font-extrabold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          <a
+            href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-teal-600 px-8 text-sm font-extrabold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-300/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             Schedule an intro call →
-          </button>
+          </a>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 pt-2 text-sm font-semibold text-teal-200/80">

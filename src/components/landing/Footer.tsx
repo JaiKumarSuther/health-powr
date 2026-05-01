@@ -13,15 +13,20 @@ function FooterCol({
         {title}
       </div>
       <div className="space-y-2">
-        {links.map((l) => (
-          <a
-            key={l.label}
-            href={l.href}
-            className="block text-sm font-semibold text-slate-500 hover:text-teal-700"
-          >
-            {l.label}
-          </a>
-        ))}
+        {links.map((l) => {
+          const isExternal = l.href.startsWith("http");
+          return (
+            <a
+              key={l.label}
+              href={l.href}
+              target={isExternal ? "_blank" : undefined}
+              rel={isExternal ? "noopener noreferrer" : undefined}
+              className="block text-sm font-semibold text-slate-500 hover:text-teal-700"
+            >
+              {l.label}
+            </a>
+          );
+        })}
       </div>
     </div>
   );
@@ -57,7 +62,7 @@ export function Footer() {
           links={[
             { label: "Join network", href: "#for-organizations" },
             { label: "Organization dashboard", href: "/auth?mode=signin" },
-            { label: "Schedule a call", href: "#for-organizations" },
+            { label: "Schedule a call", href: "https://calendly.com/mardoche-healthpowr/30min?month=2026-04" },
           ]}
         />
         <FooterCol

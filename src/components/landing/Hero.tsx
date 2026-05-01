@@ -19,7 +19,7 @@ export function Hero({
   onJoin: _onJoin,
 }: HeroProps) {
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [category, setCategory] = useState<string | null>(null);
   const [pulseInput, setPulseInput] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -65,21 +65,11 @@ export function Hero({
           </svg>
         ),
       },
-      {
-        label: "Community",
-        category: undefined,
-        svg: (
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="8" cy="8" r="6" />
-            <path d="M5.5 9c.5-1.5 5-1.5 5 0M6.5 6.5a1 1 0 100-2 1 1 0 000 2zM9.5 6.5a1 1 0 100-2 1 1 0 000 2z" />
-          </svg>
-        ),
-      },
     ],
     [],
   );
 
-  const handleFindResources = (nextCategory?: string) => {
+  const handleFindResources = (nextCategory?: string | null) => {
     const q = query.trim();
     if (!q) {
       setPulseInput(true);
@@ -87,12 +77,12 @@ export function Hero({
       window.setTimeout(() => setPulseInput(false), 820);
       return;
     }
-    onFindResources(q, nextCategory ?? category ?? null);
+    onFindResources(q, nextCategory ?? category);
   };
 
   const togglePill = (pillCategory?: string) => {
-    const wasActive = category === pillCategory;
-    const next = wasActive ? undefined : pillCategory;
+    const wasActive = category === (pillCategory ?? null);
+    const next = wasActive ? null : (pillCategory ?? null);
     setCategory(next);
   };
 
@@ -121,7 +111,7 @@ export function Hero({
               ref={inputRef}
               className={pulseInput ? "search-input input-pulse" : "search-input"}
               type="text"
-              placeholder="Enter your address or ZIP code"
+              placeholder="Enter address, ZIP, or service name"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -162,10 +152,9 @@ export function Hero({
         <p className="org-link">
           Are you an organization?{" "}
           <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-            }}
+            href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             Schedule an intro call →
           </a>

@@ -19,10 +19,23 @@ export interface PublicService {
   };
 }
 
+const VALID_CATEGORIES = [
+  'housing',
+  'food',
+  'healthcare',
+  'job_training',
+  'education',
+  'legal',
+  'mental_health',
+  'childcare',
+  'other'
+];
+
 // Fetches services without requiring an auth session
 export async function getPublicServices(filters?: {
   category?: string;
   borough?: string;
+  searchText?: string;
 }) {
   let query = supabase
     .from("services")
@@ -47,8 +60,13 @@ export async function getPublicServices(filters?: {
     `)
     .eq("is_available", true);
 
-  if (filters?.category) {
+  if (filters?.category && filters.category !== 'all' && VALID_CATEGORIES.includes(filters.category)) {
     query = query.eq("category", filters.category);
+  }
+
+  if (filters?.searchText) {
+    // Search in name or description
+    query = query.or(`name.ilike.%${filters.searchText}%,description.ilike.%${filters.searchText}%`);
   }
 
   if (filters?.borough) {

@@ -27,7 +27,7 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
       },
       {
         q: "I run a nonprofit. How can my organization join?",
-        a: "Schedule an intro call with our team. We'll walk you through the platform, answer questions, and get your organization set up.",
+        a: 'Schedule an <a href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04" target="_blank" rel="noopener noreferrer" class="text-teal-600 font-bold hover:underline">intro call</a> with our team. We\'ll walk you through the platform, answer questions, and get your organization set up.',
       },
     ],
     []
@@ -128,9 +128,10 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
                     )}
                   >
                     <div className="overflow-hidden">
-                      <p className="pb-6 pl-6 pr-12 text-base leading-relaxed text-slate-600 sm:text-md">
-                        {it.a}
-                      </p>
+                      <p 
+                        className="pb-6 pl-6 pr-12 text-base leading-relaxed text-slate-600 sm:text-md"
+                        dangerouslySetInnerHTML={{ __html: it.a }}
+                      />
                     </div>
                   </div>
                 </div>

@@ -164,15 +164,22 @@ export function ForOrganizations({ onIntro }: { onIntro: () => void }) {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              onClick={onIntro}
-              className="h-12 rounded-full bg-teal-600 px-6 text-sm font-extrabold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
+            <a
+              href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-teal-600 px-6 text-sm font-extrabold text-white transition hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
             >
               Schedule an intro call
-            </button>
-            <button className="h-12 rounded-full border border-gray-200 bg-white px-6 text-sm font-extrabold text-slate-900 transition hover:border-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50">
+            </a>
+            <a 
+              href="https://calendly.com/mardoche-healthpowr/30min?month=2026-04"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-gray-200 bg-white px-6 text-sm font-extrabold text-slate-900 transition hover:border-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
+            >
               Learn more →
-            </button>
+            </a>
           </div>
         </div>
 

@@ -35,6 +35,8 @@ export function LandingPage() {
     else if (role === 'community_member') navigate('/client', { replace: true })
   }, [user, profile, isLoading, isResolvingRole, isSubmitting, navigate]);
 
+  const CALENDLY_URL = "https://calendly.com/mardoche-healthpowr/30min?month=2026-04";
+
   const openAuth = (role: LandingRole, mode: "signin" | "signup") => {
     // Landing supports community members + organizations.
     navigate(`/auth?mode=${mode}&role=${role}`);
@@ -85,12 +87,12 @@ export function LandingPage() {
 
       <HowItWorks />
       <Messaging />
-      <ForOrganizations onIntro={() => openAuth("organization", "signup")} />
+      <ForOrganizations onIntro={() => window.open(CALENDLY_URL, "_blank", "noopener,noreferrer")} />
       <FAQ onJoin={() => openAuth("community_member", "signup")} />
       <CTA
         onSearch={handleSearch}
         onFindResources={handleFindResources}
-        onIntro={() => openAuth("organization", "signup")}
+        onIntro={() => window.open(CALENDLY_URL, "_blank", "noopener,noreferrer")}
         onSignIn={() => openAuth("community_member", "signin")}
         onJoin={() => openAuth("community_member", "signup")}
       />

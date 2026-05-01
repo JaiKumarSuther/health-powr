@@ -36,7 +36,6 @@ const CATEGORIES = [
   { id: "job_training", label: "Employment", icon: Briefcase },
   { id: "legal", label: "Legal", icon: Scale },
   { id: "education", label: "Education", icon: GraduationCap },
-  { id: "community", label: "Community", icon: MessageCircle },
 ];
 
 const SORTS = [
@@ -53,13 +52,30 @@ export function ServicesSheet({
   onRequestNow,
 }: ServicesSheetProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(initialCategory);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   const [activeSort, setActiveSort] = useState("open");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
 
+  // Sync prop changes to local state
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+    setDebouncedSearch(searchQuery);
+  }, [searchQuery]);
+
+  // Handle debouncing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(localSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
   const { data: services, isLoading, isError, refetch } = usePublicServices({
     category: activeCategory || undefined,
+    searchText: debouncedSearch || undefined,
   });
 
   useEffect(() => {
@@ -147,6 +163,19 @@ export function ServicesSheet({
             <p className="text-[12px] text-slate-400">
               {filteredAndSortedServices.length} results near {searchQuery || "your area"}
             </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-1 max-w-md mx-4">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search services..."
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 pl-10 pr-4 text-[13px] outline-none transition-all focus:border-teal-200 focus:bg-white focus:ring-4 focus:ring-teal-900/5"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
