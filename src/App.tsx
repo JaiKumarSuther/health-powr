@@ -1,8 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { RequireAuth } from "./routes/RequireAuth";
+import { isSupabaseConfigured } from "./lib/supabase";
+import { ConfigurationError } from "./components/shared/ConfigurationError";
 
 const LandingPage = lazy(() =>
   import("./components/LandingPage").then((m) => ({ default: m.LandingPage })),
@@ -41,7 +43,60 @@ const PageLoader = () => (
 );
 
 function AppRoutes() {
-  const { isLoading, isResolvingRole } = useAuth();
+  const { isLoading, isResolvingRole, retryAuth } = useAuth();
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    if (!isResolvingRole && !isLoading) {
+      setLoadError(false);
+      return;
+    }
+    
+    const timeout = setTimeout(() => {
+      if (isResolvingRole || isLoading) {
+        setLoadError(true);
+      }
+    }, 15000); // match 15s timeout
+    
+    return () => clearTimeout(timeout);
+  }, [isResolvingRole, isLoading]);
+
+  if (!isSupabaseConfigured) {
+    return <ConfigurationError />;
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-6 text-center">
+          <p className="text-lg font-bold text-gray-900">Unable to load your session</p>
+          <p className="text-sm text-gray-600 mt-2">
+            This may be due to a connection issue or a cold start. 
+            Please try retrying before refreshing.
+          </p>
+          <div className="mt-5 flex gap-3 justify-center">
+            <button
+              type="button"
+              onClick={async () => {
+                setLoadError(false);
+                await retryAuth();
+              }}
+              className="h-10 px-6 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-10 px-6 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Block ALL routing until we have a confirmed role from the DB.
   // This prevents any portal flash while profile is being fetched.

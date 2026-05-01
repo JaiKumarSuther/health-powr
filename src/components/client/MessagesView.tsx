@@ -10,22 +10,40 @@ import { messagesApi } from '../../api/messages';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { useIsMobile } from "../../hooks/useIsMobile";
 import { StatusBadge } from "../shared/StatusBadge";
+import type { ConversationListItem, Message } from "../../lib/types";
 
 export function MessagesView() {
   const { user } = useAuth();
   const location = useLocation();
-  const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false,
+  );
   const requestId = new URLSearchParams(location.search).get('requestId');
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasOlder, setHasOlder] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => setIsMobile(el.clientWidth <= 768);
+    update();
+
+    const obs = new ResizeObserver(() => update());
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -33,11 +51,11 @@ export function MessagesView() {
       try {
         setLoading(true);
         setLoadError(null);
-        const data = await messagesApi.getMyConversations();
+        const data = (await messagesApi.getMyConversations()) as ConversationListItem[];
         setConversations(data);
         if (data.length > 0) {
           if (requestId) {
-            const matching = data.find(c => String(c.request_id) === requestId);
+            const matching = data.find((c) => String(c.request_id) === requestId);
             setSelectedConversationId(matching?.id ?? data[0].id);
           } else {
             setSelectedConversationId(data[0].id);
@@ -62,14 +80,16 @@ export function MessagesView() {
 
   useEffect(() => {
     if (!user || !selectedConversationId) return;
+    const convId = selectedConversationId;
     let active = true;
     let lastRealtimeAt = Date.now();
 
     async function loadMessages() {
       try {
-        const data = await messagesApi.getMessages(selectedConversationId!);
+        const data = (await messagesApi.getMessages(convId, { limit: 50 })) as Message[];
         if (!active) return;
         setMessages(data);
+        setHasOlder((data?.length ?? 0) === 50);
       } catch {
         // Failed to load messages
       }
@@ -77,10 +97,17 @@ export function MessagesView() {
     loadMessages();
 
     // Subscribe to new messages
-    const subscription = messagesApi.subscribeToMessages(selectedConversationId!, (newMsg) => {
+    const subscription = messagesApi.subscribeToMessages(convId, (newMsg) => {
       lastRealtimeAt = Date.now();
-      setMessages(prev => {
-        const next = [...prev.filter(m => m.id !== newMsg.id), newMsg];
+      setMessages((prev) => {
+        const cast = newMsg as unknown as Message;
+        if (prev.some((m) => m.id === cast.id)) return prev;
+        const last = prev[prev.length - 1];
+        if (!last) return [cast];
+        if (+new Date(cast.created_at) >= +new Date(last.created_at)) {
+          return [...prev, cast];
+        }
+        const next = [...prev, cast];
         next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
         return next;
       });
@@ -104,6 +131,23 @@ export function MessagesView() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const loadOlder = async () => {
+    if (!selectedConversationId || isLoadingOlder || !hasOlder) return;
+    const first = messages[0];
+    if (!first?.created_at) return;
+    setIsLoadingOlder(true);
+    try {
+      const older = (await messagesApi.getMessages(selectedConversationId, {
+        limit: 50,
+        beforeCreatedAt: first.created_at,
+      })) as Message[];
+      setMessages((prev) => [...older, ...prev]);
+      setHasOlder((older?.length ?? 0) === 50);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (newMessage.trim() && selectedConversationId) {
       try {
@@ -111,8 +155,9 @@ export function MessagesView() {
         setNewMessage('');
         const sent = await messagesApi.send(selectedConversationId, content);
         // Ensure the sender sees their message immediately, even if realtime echo lags.
-        setMessages(prev => {
-          const next = [...prev.filter(m => m.id !== sent.id), sent];
+        setMessages((prev) => {
+          const cast = sent as unknown as Message;
+          const next = [...prev.filter((m) => m.id !== cast.id), cast];
           next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
           return next;
         });
@@ -122,8 +167,8 @@ export function MessagesView() {
     }
   };
 
-  const currentConversation = conversations.find(c => c.id === selectedConversationId);
-  const getAssignedStaff = (conv: any) =>
+  const currentConversation = conversations.find((c) => c.id === selectedConversationId);
+  const getAssignedStaff = (conv: ConversationListItem | undefined) =>
     conv?.request?.assigned_staff ?? conv?.assigned_staff ?? null;
   const staffForCurrent = getAssignedStaff(currentConversation);
   const requestForCurrent = currentConversation?.request ?? null;
@@ -153,7 +198,7 @@ export function MessagesView() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto h-[calc(100vh-160px)]">
+    <div ref={containerRef} className="max-w-7xl mx-auto h-[calc(100vh-160px)]">
       <div className="mb-4">
         <h1 className="text-[24px] font-bold tracking-tight text-gray-900 mb-1">Messages</h1>
         <p className="text-gray-500 text-sm">Communicate with service providers and case managers</p>
@@ -173,13 +218,43 @@ export function MessagesView() {
               <input
                 type="text"
                 placeholder="Search conversations..."
+                value={conversationSearch}
+                onChange={(e) => setConversationSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none text-sm"
               />
             </div>
           </div>
           
           <div className="flex-1 overflow-y-auto">
-            {conversations.length > 0 ? conversations.map((conversation) => (
+            {(conversationSearch
+              ? conversations.filter((c) => {
+                  const staff = getAssignedStaff(c);
+                  const hay = [
+                    staff?.full_name,
+                    c.organization?.name,
+                    c.last_message?.[0]?.content,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+                  return hay.includes(conversationSearch.toLowerCase());
+                })
+              : conversations
+            ).length > 0 ? (conversationSearch
+              ? conversations.filter((c) => {
+                  const staff = getAssignedStaff(c);
+                  const hay = [
+                    staff?.full_name,
+                    c.organization?.name,
+                    c.last_message?.[0]?.content,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+                  return hay.includes(conversationSearch.toLowerCase());
+                })
+              : conversations
+            ).map((conversation) => (
               (() => {
                 const staff = getAssignedStaff(conversation);
                 const displayName =
@@ -334,6 +409,18 @@ export function MessagesView() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {hasOlder && (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => void loadOlder()}
+                      disabled={isLoadingOlder}
+                      className="h-9 px-3 rounded-lg bg-white border border-gray-200 text-gray-700 text-[12px] font-semibold hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {isLoadingOlder ? "Loading…" : "Load older"}
+                    </button>
+                  </div>
+                )}
                 {messages.map((message) => {
                   const isMe = message.sender_id === user?.id;
                   return (
@@ -369,7 +456,7 @@ export function MessagesView() {
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder="Type your message..."
                       className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white focus:border-transparent outline-none text-sm transition-all"
-                      onKeyPress={(e) => {
+                      onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           handleSendMessage();
                         }

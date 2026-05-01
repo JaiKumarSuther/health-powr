@@ -8,16 +8,24 @@ function getReturnToFromQuery(searchParams: URLSearchParams): string | null {
     searchParams.get("returnTo") ??
     searchParams.get("redirectTo");
   if (!raw) return null;
-  // Only allow app-internal paths.
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//")) return null;
-  return raw;
+  const allowed = new Set(["/client", "/cbo", "/staff", "/admin"]);
+  const trimmed = raw.trim();
+  if (!allowed.has(trimmed)) return null;
+  return trimmed;
 }
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+
+  const hadReturnToParam = useMemo(() => {
+    const raw =
+      searchParams.get("next") ??
+      searchParams.get("returnTo") ??
+      searchParams.get("redirectTo");
+    return !!raw;
+  }, [searchParams]);
 
   const returnTo = useMemo(
     () => getReturnToFromQuery(searchParams),
@@ -48,7 +56,7 @@ export default function AuthCallbackPage() {
               // If close fails (e.g. popup blocker), continue with normal flow
             }
           }
-          navigate(returnTo ?? "/", { replace: true });
+          navigate(returnTo ?? (hadReturnToParam ? "/" : "/client"), { replace: true });
           return;
         }
 
@@ -74,7 +82,7 @@ export default function AuthCallbackPage() {
           }
         }
 
-        navigate(returnTo ?? "/", { replace: true });
+        navigate(returnTo ?? (hadReturnToParam ? "/" : "/client"), { replace: true });
       } catch (err: any) {
         if (!isMounted) return;
         setError(
@@ -89,7 +97,7 @@ export default function AuthCallbackPage() {
     return () => {
       isMounted = false;
     };
-  }, [navigate, returnTo]);
+  }, [navigate, returnTo, hadReturnToParam]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">

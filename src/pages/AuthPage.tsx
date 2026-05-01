@@ -23,7 +23,7 @@ export function AuthPage() {
   const location = useLocation();
   const { signIn, signUp, user, profile } = useAuth();
   const mode = (searchParams.get("mode") as "signin" | "signup" | "forgot") || "signin";
-  const [role, setRole] = useState<"community_member" | "organization" | "staff">(
+  const [role, setRole] = useState<"community_member" | "organization">(
     (searchParams.get("role") as any) || "community_member"
   );
   
@@ -149,7 +149,7 @@ export function AuthPage() {
         email,
         password,
         name: fullName,
-        role: (role === 'staff' || role === 'community_member') ? 'community_member' : 'organization',
+        role: role === 'community_member' ? 'community_member' : 'organization',
         organization: role === 'organization' ? orgName : undefined,
         borough: role === 'organization' ? borough : undefined,
       });
@@ -367,7 +367,6 @@ export function AuthPage() {
                 <button
                   onClick={() => {
                     setMode("signup");
-                    if (role === 'staff') setRole('community_member');
                     setError(null);
                   }}
                   className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${

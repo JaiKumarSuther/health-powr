@@ -467,7 +467,7 @@ export function StaffOverview() {
             <svg viewBox="0 0 16 16" className="w-3 h-3 text-[#7a9e99] flex-shrink-0" stroke="currentColor" fill="none" strokeWidth={1.5} strokeLinecap="round">
               <circle cx="8" cy="8" r="6"/><path d="M8 5v3"/><circle cx="8" cy="11" r=".5" fill="currentColor" stroke="none"/>
             </svg>
-            <span className="text-[11px] text-[#7a9e99]" dangerouslySetInnerHTML={{ __html: TAB_DEFS[activeTab] }} />
+            <span className="text-[11px] text-[#7a9e99]">{TAB_DEFS[activeTab]}</span>
           </div>
 
           {/* Case rows */}
@@ -583,7 +583,7 @@ export function StaffOverview() {
                 <div key={item.id} className="flex items-start gap-3 px-4 py-2.5">
                   <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ background: item.dotColor }} />
                   <div>
-                    <div className="text-[12px] text-[#0f1f2e]" dangerouslySetInnerHTML={{ __html: item.text }} />
+                    <div className="text-[12px] text-[#0f1f2e]">{item.text}</div>
                     <div className="text-[11px] text-[#7a9e99] mt-0.5">{timeLabel(item.created_at)}</div>
                   </div>
                 </div>

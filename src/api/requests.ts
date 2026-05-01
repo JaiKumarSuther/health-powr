@@ -1,7 +1,20 @@
 import { supabase } from "../lib/supabase";
 import type { ServiceCategory, RequestStatus } from "../lib/types";
+import { requireUser } from "./requireUser";
 
 type OrgMembershipRole = "owner" | "admin" | "member";
+
+function clampPageSize(pageSize?: number) {
+  return Math.max(1, Math.min(200, pageSize ?? 50));
+}
+
+function pageRange(opts?: { page?: number; pageSize?: number }) {
+  const pageSize = clampPageSize(opts?.pageSize);
+  const page = Math.max(1, opts?.page ?? 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  return { page, pageSize, from, to };
+}
 
 export const requestsApi = {
   async getMyOrgId(): Promise<string | null> {
@@ -112,9 +125,7 @@ export const requestsApi = {
     need_categories?: string[];
     metadata?: Record<string, unknown>;
   }) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await requireUser();
 
     const assignedOrgId = await this.resolveAutoAssignedOrgId({
       borough: data.borough,
@@ -128,7 +139,7 @@ export const requestsApi = {
         borough: data.borough,
         description: data.description,
         service_id: data.service_id,
-        member_id: user!.id,
+        member_id: user.id,
         assigned_org_id: assignedOrgId,
         need_categories: data.need_categories ?? [],
         metadata: data.metadata ?? {},
@@ -141,12 +152,13 @@ export const requestsApi = {
   },
 
   // Community member: get their own requests
-  async getMyRequests() {
+  async getMyRequests(opts?: { page?: number; pageSize?: number }) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return [];
 
+    const { from, to } = pageRange(opts);
     const { data, error } = await supabase
       .from("service_requests")
       .select(
@@ -160,7 +172,8 @@ export const requestsApi = {
       `,
       )
       .eq("member_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
     if (error) throw error;
     return data;
   },
@@ -169,10 +182,11 @@ export const requestsApi = {
   async getOrgRequests(filters?: {
     status?: RequestStatus;
     category?: ServiceCategory;
-  }) {
+  }, opts?: { page?: number; pageSize?: number }) {
     const ctx = await this.getMyOrgMembership();
     if (!ctx.orgId) return [];
 
+    const { from, to } = pageRange(opts);
     let query = supabase
       .from("service_requests")
       .select(
@@ -197,7 +211,8 @@ export const requestsApi = {
       `,
       )
       .eq("assigned_org_id", ctx.orgId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     // Staff members only see requests assigned to them.
     if (ctx.role === "member" && ctx.userId) {
@@ -207,7 +222,7 @@ export const requestsApi = {
     if (filters?.status) query = query.eq("status", filters.status);
     if (filters?.category) query = query.eq("category", filters.category);
 
-    const { data, error } = await query.limit(200);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
@@ -271,7 +286,7 @@ export const requestsApi = {
   async getOrgServiceRequests(filters?: {
     status?: RequestStatus;
     category?: ServiceCategory;
-  }) {
+  }, opts?: { page?: number; pageSize?: number }) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -298,6 +313,7 @@ export const requestsApi = {
     const serviceIds = (services ?? []).map((s) => s.id).filter(Boolean);
     if (serviceIds.length === 0) return [];
     // 2) Fetch requests for any service owned by this org
+    const { from, to } = pageRange(opts);
     let query = supabase
       .from("service_requests")
       .select(
@@ -309,7 +325,8 @@ export const requestsApi = {
       `,
       )
       .in("service_id", serviceIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (filters?.status) query = query.eq("status", filters.status);
     if (filters?.category) query = query.eq("category", filters.category);
@@ -324,7 +341,8 @@ export const requestsApi = {
     status?: RequestStatus;
     org_id?: string;
     borough?: string;
-  }) {
+  }, opts?: { page?: number; pageSize?: number }) {
+    const { from, to } = pageRange(opts);
     let query = supabase
       .from("service_requests")
       .select(
@@ -334,13 +352,14 @@ export const requestsApi = {
         organization:organizations(name, borough)
       `,
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (filters?.status) query = query.eq("status", filters.status);
     if (filters?.org_id) query = query.eq("assigned_org_id", filters.org_id);
     if (filters?.borough) query = query.eq("borough", filters.borough);
 
-    const { data, error } = await query.limit(200);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
@@ -400,14 +419,12 @@ export const requestsApi = {
 
   // Admin: assign request to org
   async assignToOrg(requestId: string, orgId: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await requireUser();
     const { error } = await supabase
       .from("service_requests")
       .update({
         assigned_org_id: orgId,
-        assigned_by: user!.id,
+        assigned_by: user.id,
         assigned_at: new Date().toISOString(),
         status: "in_review",
       })
@@ -416,7 +433,8 @@ export const requestsApi = {
   },
 
   // Admin: export as CSV
-  async exportCsv() {
+  async exportCsv(opts?: { page?: number; pageSize?: number }) {
+    const { from, to } = pageRange(opts);
     const { data, error } = await supabase
       .from("service_requests")
       .select(
@@ -427,7 +445,8 @@ export const requestsApi = {
         organization:organizations(name)
       `,
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
     if (error) throw error;
     return data;
   },
@@ -473,15 +492,6 @@ export const requestsApi = {
     const ctx = await this.getMyOrgMembership();
     if (!ctx.orgId || ctx.role === "member") return [];
 
-    const { data: requests, error: requestsError } = await supabase
-      .from("service_requests")
-      .select("id")
-      .eq("assigned_org_id", ctx.orgId);
-    if (requestsError) throw requestsError;
-
-    const requestIds = (requests ?? []).map((r) => r.id).filter(Boolean);
-    if (requestIds.length === 0) return [];
-
     const [{ data: notes, error: notesError }, { data: statusHistory, error: historyError }] =
       await Promise.all([
         supabase
@@ -489,10 +499,11 @@ export const requestsApi = {
           .select(
             `
             id, request_id, content, created_at,
+            request:service_requests!inner(id, assigned_org_id),
             author:profiles!author_id(full_name)
           `,
           )
-          .in("request_id", requestIds)
+          .eq("request.assigned_org_id", ctx.orgId)
           .order("created_at", { ascending: false })
           .limit(limit),
         supabase
@@ -500,10 +511,11 @@ export const requestsApi = {
           .select(
             `
             id, request_id, new_status, note, created_at,
+            request:service_requests!inner(id, assigned_org_id),
             actor:profiles!changed_by(full_name)
           `,
           )
-          .in("request_id", requestIds)
+          .eq("request.assigned_org_id", ctx.orgId)
           .order("created_at", { ascending: false })
           .limit(limit),
       ]);

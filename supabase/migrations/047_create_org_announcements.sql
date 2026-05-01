@@ -19,10 +19,15 @@ create table if not exists public.org_announcements (
   updated_at timestamptz not null default now()
 );
 
+-- Trigger
+drop trigger if exists org_announcements_updated_at
+on public.org_announcements;
+
 create trigger org_announcements_updated_at
   before update on public.org_announcements
   for each row execute function update_updated_at();
 
+-- Indexes
 create index if not exists idx_org_announcements_created_at
   on public.org_announcements (created_at desc);
 
@@ -68,6 +73,7 @@ alter table public.announcement_reactions enable row level security;
 
 -- Read: any authenticated user can read announcements and reactions
 drop policy if exists "announcements_select_authenticated" on public.org_announcements;
+
 create policy "announcements_select_authenticated"
   on public.org_announcements
   for select
@@ -75,6 +81,7 @@ create policy "announcements_select_authenticated"
   using (true);
 
 drop policy if exists "announcement_reactions_select_authenticated" on public.announcement_reactions;
+
 create policy "announcement_reactions_select_authenticated"
   on public.announcement_reactions
   for select
@@ -83,6 +90,7 @@ create policy "announcement_reactions_select_authenticated"
 
 -- Admin can manage all announcements (platform + CBO)
 drop policy if exists "announcements_admin_all" on public.org_announcements;
+
 create policy "announcements_admin_all"
   on public.org_announcements
   for all
@@ -92,6 +100,7 @@ create policy "announcements_admin_all"
 
 -- Organization owners/admins can manage their org's announcements
 drop policy if exists "announcements_org_manage_own" on public.org_announcements;
+
 create policy "announcements_org_manage_own"
   on public.org_announcements
   for all
@@ -121,6 +130,7 @@ create policy "announcements_org_manage_own"
 
 -- Reactions: members can manage their own reactions
 drop policy if exists "announcement_reactions_insert_own" on public.announcement_reactions;
+
 create policy "announcement_reactions_insert_own"
   on public.announcement_reactions
   for insert
@@ -128,6 +138,7 @@ create policy "announcement_reactions_insert_own"
   with check (user_id = auth.uid());
 
 drop policy if exists "announcement_reactions_delete_own" on public.announcement_reactions;
+
 create policy "announcement_reactions_delete_own"
   on public.announcement_reactions
   for delete
@@ -137,11 +148,14 @@ create policy "announcement_reactions_delete_own"
 -- Storage bucket for announcement images
 insert into storage.buckets (id, name, public)
 values ('community', 'community', true)
-on conflict (id) do update set public = true;
+on conflict (id)
+do update set public = true;
 
 -- storage.objects policies (bucket: community)
+
 -- Public read
 drop policy if exists "community_bucket_public_read" on storage.objects;
+
 create policy "community_bucket_public_read"
   on storage.objects
   for select
@@ -150,6 +164,7 @@ create policy "community_bucket_public_read"
 
 -- Only admin / organization can upload/manage community assets
 drop policy if exists "community_bucket_admin_org_insert" on storage.objects;
+
 create policy "community_bucket_admin_org_insert"
   on storage.objects
   for insert
@@ -160,6 +175,7 @@ create policy "community_bucket_admin_org_insert"
   );
 
 drop policy if exists "community_bucket_admin_org_update" on storage.objects;
+
 create policy "community_bucket_admin_org_update"
   on storage.objects
   for update
@@ -174,6 +190,7 @@ create policy "community_bucket_admin_org_update"
   );
 
 drop policy if exists "community_bucket_admin_org_delete" on storage.objects;
+
 create policy "community_bucket_admin_org_delete"
   on storage.objects
   for delete
@@ -182,4 +199,3 @@ create policy "community_bucket_admin_org_delete"
     bucket_id = 'community'
     and public.get_user_role() in ('admin', 'organization')
   );
-

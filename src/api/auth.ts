@@ -29,16 +29,6 @@ export type Profile = {
   borough?: string | null;
 };
 
-type CachedProfileEntry = {
-  value: Profile | null;
-  fetchedAt: number;
-};
-
-// Module-level cache to avoid refetching the same profile on route/tab changes.
-// This is intentionally simple and in-memory (clears on hard refresh).
-const profileCache = new Map<string, CachedProfileEntry>();
-const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
 export const authApi = {
   /**
    * Sign up a new user with Supabase Auth
@@ -126,25 +116,30 @@ export const authApi = {
   /**
    * Fetch user profile from profiles table
    */
-  async fetchProfile(userId: string, opts?: { force?: boolean }): Promise<Profile | null> {
-    const force = opts?.force === true;
-    if (!force) {
-      const cached = profileCache.get(userId);
-      if (cached && Date.now() - cached.fetchedAt < PROFILE_CACHE_TTL_MS) {
-        return cached.value;
-      }
-    }
+  async fetchProfile(
+    userId: string,
+    opts?: { force?: boolean; signal?: AbortSignal },
+  ): Promise<Profile | null> {
+    void opts;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("profiles")
       .select("id, email, role, full_name, avatar_url, phone, borough")
-      .eq("id", userId)
-      .maybeSingle();
+      .eq("id", userId);
+
+    if (opts?.signal) {
+      query = query.abortSignal(opts.signal);
+    }
+
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
+      // Ignore AbortError - it's expected on timeout
+      if (error.code === 'ABORT' || error.message?.includes('abort')) {
+        return null;
+      }
       console.error('[fetchProfile] Failed to load profile for user:', userId,
         'Error:', error.message, 'Code:', error.code)
-      profileCache.set(userId, { value: null, fetchedAt: Date.now() });
       return null;
     }
 
@@ -154,7 +149,6 @@ export const authApi = {
     }
 
     const result = data as Profile | null;
-    profileCache.set(userId, { value: result, fetchedAt: Date.now() });
     return result;
   },
 

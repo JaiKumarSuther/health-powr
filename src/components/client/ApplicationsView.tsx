@@ -470,6 +470,9 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sheetRequestId, setSheetRequestId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 50;
 
   useEffect(() => {
     if (!user) return;
@@ -477,8 +480,10 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
       try {
         setLoading(true);
         setLoadError(null);
-        const data = (await requestsApi.getMyRequests()) as unknown as ClientApplication[];
+        const data = (await requestsApi.getMyRequests({ page: 1, pageSize })) as unknown as ClientApplication[];
         setApplications(data ?? []);
+        setPage(1);
+        setHasMore((data?.length ?? 0) === pageSize);
       } catch (e: unknown) {
         const err = e as { message?: string };
         setLoadError(err?.message || "Failed to load applications.");
@@ -502,11 +507,22 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
 
   const reload = useMemo(
     () => async () => {
-      const data = (await requestsApi.getMyRequests()) as unknown as ClientApplication[];
+      const data = (await requestsApi.getMyRequests({ page: 1, pageSize })) as unknown as ClientApplication[];
       setApplications(data ?? []);
+      setPage(1);
+      setHasMore((data?.length ?? 0) === pageSize);
     },
     []
   );
+
+  async function loadMore() {
+    if (!hasMore) return;
+    const nextPage = page + 1;
+    const data = (await requestsApi.getMyRequests({ page: nextPage, pageSize })) as unknown as ClientApplication[];
+    setApplications((prev) => [...prev, ...(data ?? [])]);
+    setPage(nextPage);
+    setHasMore((data?.length ?? 0) === pageSize);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -687,6 +703,19 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
             />
           ))}
         </div>
+
+        {selectedTab === "all" && filtered.length > 0 && (
+          <div className="flex justify-center mt-4">
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={!hasMore}
+              className="h-10 px-4 rounded-xl bg-white border border-gray-200 text-gray-800 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
+            >
+              {hasMore ? "Load more" : "No more applications"}
+            </button>
+          </div>
+        )}
 
         {/* Empty state */}
         {filtered.length === 0 && (

@@ -143,7 +143,13 @@ export function ReportsView() {
     if (exporting) return;
     setExporting(true);
     try {
-      const data = await requestsApi.exportCsv();
+      const all: any[] = [];
+      for (let p = 1; p < 10_000; p++) {
+        const chunk = await requestsApi.exportCsv({ page: p, pageSize: 500 });
+        all.push(...(chunk ?? []));
+        if (!chunk || chunk.length < 500) break;
+      }
+      const data = all;
       const headers = ['ID', 'Category', 'Borough', 'Status', 'Member', 'Organization', 'Created At'];
       const rows = (data as any[]).map((r) => [
         r.id, r.category, r.borough, r.status,

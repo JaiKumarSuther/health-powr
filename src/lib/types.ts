@@ -77,6 +77,47 @@ export interface Message {
   sender?: Profile
 }
 
+export interface OrganizationSummary {
+  id: string;
+  name: string;
+  logo_url?: string | null;
+}
+
+export interface ServiceSummary {
+  name: string;
+  category: string;
+}
+
+export interface ServiceRequestSummary {
+  id: string;
+  assigned_staff_id: string | null;
+  borough: string | null;
+  status: string;
+  created_at: string;
+  services?: ServiceSummary | null;
+  assigned_staff?: Pick<Profile, "id" | "full_name"> & { avatar_url?: string | null } | null;
+}
+
+export interface ConversationListItem {
+  id: string;
+  request_id: string | null;
+  member_id: string;
+  organization_id: string;
+  status?: string | null;
+  subject?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  last_message_at?: string | null;
+  organization?: OrganizationSummary | null;
+  assigned_staff?: (Pick<Profile, "id" | "full_name"> & { avatar_url?: string | null }) | null;
+  request?: ServiceRequestSummary | null;
+  last_message?: { content: string; created_at: string }[] | null;
+  // some queries return these alternate shapes
+  service_request?: ServiceRequestSummary | null;
+  member?: (Pick<Profile, "id" | "full_name"> & { avatar_url?: string | null }) | null;
+  messages?: { content: string; created_at: string }[] | null;
+}
+
 export interface ForumThread {
   id: string
   author_id: string

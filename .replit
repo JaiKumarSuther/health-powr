@@ -36,5 +36,7 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-VITE_SUPABASE_URL = "https://lswmgcjwoxpvvrymtpjp.supabase.co"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxzd21nY2p3b3hwdnZyeW10cGpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MDQwNTEsImV4cCI6MjA5MTM4MDA1MX0.HmGeKi0FutOxH3pMaDOwTgPWlVQL6IDJIdHIjfW1C2E"
+# Do NOT store project credentials here.
+# Configure these in your deployment environment or local `.env`:
+# - VITE_SUPABASE_URL
+# - VITE_SUPABASE_ANON_KEY

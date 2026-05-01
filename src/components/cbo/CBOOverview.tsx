@@ -573,7 +573,7 @@ export function CBOOverview() {
             <span className="text-[14px] font-bold text-[#0f1f2e]">Team activity</span>
           </div>
           <div className="flex-1 flex flex-col justify-evenly py-2">
-            {teamActivity.slice(0, 5).map((item, i) => (
+            {teamActivity.slice(0, 5).map((item) => (
               <div key={item.id} className="flex items-start gap-3 px-4 py-2">
                 <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ background: item.dotColor }}/>
                 <div>

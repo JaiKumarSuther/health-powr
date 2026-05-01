@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { requestsApi } from '../../api/requests';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -162,7 +162,7 @@ async function fetchReportsData(
       .lte('created_at', toISO),
     supabase
       .from('service_requests')
-      .select('id, status, category, borough, created_at')
+      .select('id, member_id, status, category, borough, created_at')
       .eq('assigned_org_id', orgId)
       .gte('created_at', prevFromISO)
       .lte('created_at', prevToISO),
@@ -257,7 +257,7 @@ async function fetchReportsData(
     }));
 
   // Volume over time (7 day buckets for week, weekly for month/quarter)
-  const volumePoints: VolumePoint[] = DAY_LABELS.map((label, i) => ({
+  const volumePoints: VolumePoint[] = DAY_LABELS.map((label) => ({
     label,
     current:  Math.floor(Math.random() * 12) + 2,   // TODO: replace with real bucketing
     previous: Math.floor(Math.random() * 10) + 1,
@@ -330,7 +330,7 @@ function MetricCard({
             </defs>
             <path
               fill={`url(#sg-${label})`}
-              d={`M${pts.split(' ').map((p, i, arr) => i === 0 ? `M${p}` : `L${p}`).join(' ')} L${w},${h + 10} L0,${h + 10} Z`}
+              d={`M${pts.split(' ').map((p, i) => i === 0 ? `M${p}` : `L${p}`).join(' ')} L${w},${h + 10} L0,${h + 10} Z`}
             />
             <polyline
               stroke="#1d4ed8"
@@ -341,32 +341,6 @@ function MetricCard({
           </svg>
         </div>
       )}
-    </div>
-  );
-}
-
-function BarChart({ items, maxCount }: { items: { label: string; count: number; color: string }[]; maxCount: number }) {
-  return (
-    <div className="flex flex-col gap-[9px] px-4 pb-4">
-      {items.map(item => (
-        <div key={item.label} className="flex items-center gap-2">
-          <span className="text-[11px] text-[#4b6b65] w-[72px] flex-shrink-0 capitalize">
-            {item.label.replace(/_/g, ' ')}
-          </span>
-          <div className="flex-1 h-[7px] bg-[#e5e7eb] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}%`,
-                background: item.color,
-              }}
-            />
-          </div>
-          <span className="text-[11px] font-semibold text-[#0f1f2e] w-4 text-right flex-shrink-0">
-            {item.count}
-          </span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -510,7 +484,6 @@ export function CBOReports() {
   };
 
   const maxCat = Math.max(...byCategory.map(c => c.count), 1);
-  const maxBor = Math.max(...byBorough.map(b => b.count), 1);
 
   const sparkData = volumePoints.map(p => p.current);
 
@@ -579,7 +552,7 @@ export function CBOReports() {
           label="Resolution rate"
           trend={`${metrics.resolutionRate >= metrics.prevResolutionRate ? '+' : ''}${metrics.resolutionRate - metrics.prevResolutionRate}% vs last period`}
           trendUp={metrics.resolutionRate >= metrics.prevResolutionRate}
-          sparkPoints={sparkData.map((v, i) => Math.min(100, v * 1.5))}
+          sparkPoints={sparkData.map((v) => Math.min(100, v * 1.5))}
         />
         <MetricCard
           value={`${fmt(metrics.avgResponseHours)}h`}
@@ -630,7 +603,7 @@ export function CBOReports() {
                 const prev = volumePoints.map(p => p.previous);
                 return (
                   <>
-                    <path fill="url(#volPrev)" d={`M${pts(prev).split(' ').map((p, i, a) => i === 0 ? `M${p}` : `L${p}`).join(' ')} L560,130 L0,130 Z`} />
+                    <path fill="url(#volPrev)" d={`M${pts(prev).split(' ').map((p, i) => i === 0 ? `M${p}` : `L${p}`).join(' ')} L560,130 L0,130 Z`} />
                     <polyline stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="5 3" fill="none" points={pts(prev)} />
                     <path fill="url(#volGrad)" d={`M${pts(curr).split(' ').map((p, i) => i === 0 ? `M${p}` : `L${p}`).join(' ')} L560,130 L0,130 Z`} />
                     <polyline stroke="#1d4ed8" strokeWidth={2.5} fill="none" points={pts(curr)} />
@@ -793,8 +766,8 @@ export function CBOReports() {
             </tr>
           </thead>
           <tbody>
-            {teamPerf.map((member, i) => (
-              <tr key={member.id} className={i < teamPerf.length - 1 ? 'border-b border-[#e8f0ee]' : ''}>
+            {teamPerf.map((member, idx) => (
+              <tr key={member.id} className={idx < teamPerf.length - 1 ? 'border-b border-[#e8f0ee]' : ''}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <div className="relative">

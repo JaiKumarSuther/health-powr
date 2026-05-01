@@ -1,6 +1,7 @@
 import React, {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -10,6 +11,7 @@ import type { User, UserRole } from "../types/user";
 import { supabase } from "../lib/supabase";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { authApi } from "../api/auth";
+import { withTimeout } from "../lib/withTimeout";
 
 type Profile = {
   id: string;
@@ -36,9 +38,12 @@ interface AuthContextType {
   }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  retryAuth: () => Promise<void>;
   isLoading: boolean;
   isResolvingRole: boolean;
   isSubmitting: boolean;
+  authError: string | null;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,8 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isResolvingRole, setIsResolvingRole] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const hasInitialized = useRef(false);
+  const orgSetupAttempted = useRef(false);
   const didBootstrapOrgForUserRef = useRef<string | null>(null);
   const bootstrapInFlightRef = useRef(false);
+
+  const clearAuthError = () => setAuthError(null);
 
   async function invokeSetupOrganization(orgName: string, borough: string) {
     const { error } = await supabase.functions.invoke('setup-organization', {
@@ -59,6 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     if (error) throw error
   }
+
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
   const maybeBootstrapOrganization = async (input: {
     userId: string;
     email: string;
@@ -79,18 +92,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Skip if already successfully bootstrapped this session.
     if (didBootstrapOrgForUserRef.current === input.userId) return;
+    // Guard setup-organization so it only runs ONCE per session/mount
+    if (orgSetupAttempted.current) return;
     // Avoid repeated calls if a previous one is still running.
     if (bootstrapInFlightRef.current) return;
 
     try {
       bootstrapInFlightRef.current = true;
+      orgSetupAttempted.current = true;
       console.log('[Bootstrap] Starting org setup for user:', input.userId, 'org:', orgName);
       await invokeSetupOrganization(orgName, borough);
       // Only mark as done after a successful creation so a transient failure
       // does not permanently block the org from being created.
       didBootstrapOrgForUserRef.current = input.userId;
-    } catch {
-      // Non-blocking — will be retried on the next auth state change.
+    } catch (e: unknown) {
+      // Non-blocking — but we don't retry automatically anymore per requirement
+      console.error("[Bootstrap] Org setup failed.", e);
+      setAuthError("Failed to set up organization workspace. Please contact support.");
     } finally {
       bootstrapInFlightRef.current = false;
     }
@@ -174,207 +192,157 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fetchProfile = async (id: string): Promise<Profile | null> => {
-    // Use the clean authApi
-    return authApi.fetchProfile(id);
+  const fetchProfileWithRetry = async (userId: string, maxAttempts = 3): Promise<Profile | null> => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      console.log(`[Auth] Profile fetch attempt ${attempt}/${maxAttempts}...`);
+      const result = await withTimeout(
+        (signal) => authApi.fetchProfile(userId, { signal }),
+        15000 // 15 seconds for cold starts
+      );
+      if (result) return result;
+      if (attempt < maxAttempts) {
+        await sleep(2000);
+      }
+    }
+    return null;
   };
 
-  // Helper: wrap a promise with a timeout so long-running requests don't block UI
-  const withTimeout = async <T,>(
-    p: Promise<T>,
-    ms = 3000,
-  ): Promise<T | null> => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
+  const initializeAuth = useCallback(async (isMounted: () => boolean) => {
     try {
-      const result = await Promise.race([
-        p,
-        new Promise<null>((resolve) => {
-          timer = setTimeout(() => resolve(null), ms);
-        }),
-      ]);
-      return result as T | null;
+      clearAuthError();
+      setIsResolvingRole(true);
+
+      const { data: { session: sess } } = await supabase.auth.getSession();
+      if (!isMounted()) return;
+
+      if (!sess) {
+        // No session at all → redirect to login, do NOT show error screen
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setIsResolvingRole(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Session exists → now fetch profile
+      let session = sess;
+      const expiresAt = sess.expires_at ?? 0;
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const secondsUntilExpiry = expiresAt - nowSeconds;
+      if (secondsUntilExpiry < 300) {
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (refreshData.session) session = refreshData.session;
+      }
+
+      if (!isMounted()) return;
+      setSession(session);
+
+      const supaUser = session.user;
+      const mapped = mapSupabaseUserToAppUser(supaUser);
+      
+      const profileData = await fetchProfileWithRetry(supaUser.id);
+      if (!isMounted()) return;
+
+      if (!profileData) {
+        // Session exists but profile failed after retries
+        console.error("[AuthContext] Profile fetch failed after all retries.");
+        setAuthError("Unable to load your profile. Please check your connection and refresh.");
+        setIsResolvingRole(false);
+        setIsLoading(false);
+        return;
+      }
+
+      applyResolvedIdentity(mapped, profileData);
+
+      if (profileData.role && mapped.role !== profileData.role) {
+        supabase.auth.updateUser({ data: { role: profileData.role } }).then(({ error }) => {
+          if (error) console.error('[Auth] Failed to sync metadata role:', error.message)
+        })
+      }
+
+      const resolvedRole = (profileData.role as UserRole) ?? mapped.role;
+      if (resolvedRole === 'organization') {
+        supabase
+          .from('organization_members')
+          .select('role')
+          .eq('profile_id', supaUser.id)
+          .maybeSingle()
+          .then(({ data: membership }) => {
+            if (!membership || membership.role === 'owner') {
+              void maybeBootstrapOrganization({
+                userId: supaUser.id,
+                email: mapped.email,
+                role: resolvedRole,
+                organizationName: mapped.organization,
+                borough: profileData?.borough ?? undefined,
+              });
+            }
+          });
+      }
+    } catch (e) {
+      console.error("[AuthContext:initializeAuth] Failed.", e);
+      if (isMounted()) {
+        setAuthError(
+          e instanceof Error ? e.message : "Unable to initialize session.",
+        );
+      }
     } finally {
-      if (timer) clearTimeout(timer);
+      if (isMounted()) {
+        setIsResolvingRole(false);
+        setIsLoading(false);
+      }
     }
-  };
+  }, [mapSupabaseUserToAppUser]);
+
+  const retryAuth = useCallback(async () => {
+    setAuthError(null);
+    setIsResolvingRole(true);
+    // Passing a dummy isMounted that always returns true for the retry action
+    await initializeAuth(() => true);
+  }, [initializeAuth]);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type === 'HP_AUTH_COMPLETE') {
-        // Simple professional behavior: do NOT hard-reload the SPA.
-        // The auth state listener should hydrate automatically once storage updates.
-        void supabase.auth.getSession().then(() => {})
+        void initializeAuth(() => true);
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
-  }, [])
+  }, [initializeAuth])
 
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     let isMounted = true;
-
-    const init = async () => {
-      try {
-        // Single session call — no unconditional refresh
-        const {
-          data: { session: sess },
-        } = await supabase.auth.getSession();
-        if (!isMounted) return;
-        // Only refresh if token is close to expiry (within 5 minutes)
-        // Supabase tokens expire every 3600s by default
-        let session = sess ?? null;
-        if (sess) {
-          const expiresAt = sess.expires_at ?? 0;
-          const nowSeconds = Math.floor(Date.now() / 1000);
-          const secondsUntilExpiry = expiresAt - nowSeconds;
-          if (secondsUntilExpiry < 300) {
-            // Token expires in < 5 minutes — refresh it
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            if (refreshData.session) session = refreshData.session;
-          }
-        }
-
-        if (!isMounted) return;
-        setSession(session);
-
-        const supaUser = session?.user ?? null;
-        if (!supaUser) {
-          setUser(null);
-          setProfile(null);
-          setIsResolvingRole(false);
-          return;
-        }
-
-        const mapped = mapSupabaseUserToAppUser(supaUser);
-        const profileData = await withTimeout(fetchProfile(supaUser.id), 3000);
-        if (!isMounted) return;
-        // No org bootstrap on login.
-        applyResolvedIdentity(mapped, profileData);
-
-        // Sync user_metadata.role if profile role differs from metadata role.
-        if (profileData?.role && mapped.role !== profileData.role) {
-          supabase.auth.updateUser({ data: { role: profileData.role } }).then(({ error }) => {
-            if (error) console.error('[Auth] Failed to sync metadata role:', error.message)
-          })
-        }
-
-        // Fallback: if user signed up with email verification and no session existed at signup,
-        // create the organization on first successful login.
-        const resolvedRole = (profileData?.role as UserRole) ?? mapped.role;
-        // Only bootstrap for org owners, not staff members (member/admin in organization_members).
-        if (resolvedRole === 'organization') {
-          supabase
-            .from('organization_members')
-            .select('role')
-            .eq('profile_id', supaUser.id)
-            .maybeSingle()
-            .then(({ data: membership }) => {
-              if (!membership || membership.role === 'owner') {
-                void maybeBootstrapOrganization({
-                  userId: supaUser.id,
-                  email: mapped.email,
-                  role: resolvedRole,
-                  organizationName: mapped.organization,
-                  borough: profileData?.borough ?? undefined,
-                });
-              }
-            });
-        }
-      } catch {
-        // Avoid logging session/bootstrap details in the client
-      } finally {
-        if (isMounted) setIsResolvingRole(false);
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    void init();
+    void initializeAuth(() => isMounted);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, nextSession) => {
-        // If signIn() immediately signs the user out (role mismatch),
-        // the SIGNED_OUT event should clear state without activating global spinners.
         if (event === "SIGNED_OUT") {
           if (!isMounted) return;
           setSession(null);
           setUser(null);
           setProfile(null);
           didBootstrapOrgForUserRef.current = null;
+          orgSetupAttempted.current = false;
           setIsResolvingRole(false);
           setIsLoading(false);
           return;
         }
 
-        setIsResolvingRole(true)
-        try {
+        if (event === "TOKEN_REFRESHED") {
           if (!isMounted) return;
           setSession(nextSession ?? null);
+          return;
+        }
 
-          // Token refreshes should not re-hydrate user/profile; doing so re-triggers page data effects.
-          if (event === "TOKEN_REFRESHED") return;
-
-          const supaUser = nextSession?.user ?? null;
-          if (!supaUser) {
-            setUser(null);
-            setProfile(null);
-            didBootstrapOrgForUserRef.current = null;
-            setIsResolvingRole(false)
-            return;
-          }
-
-          if (supaUser) {
-            const mapped = mapSupabaseUserToAppUser(supaUser);
-
-            // Fetch profile ONCE — reuse for both role check and identity application.
-            // This eliminates the triple-fetch race where fetch #2 (role check) could
-            // succeed while fetch #3 (applyResolvedIdentity) timed out, causing the
-            // admin to land on /client with a stale metadata role.
-            const profileData = await withTimeout(
-              authApi.fetchProfile(supaUser.id),
-              3000,
-            );
-            if (!isMounted) return;
-
-            // Apply identity using the same profileData — no second fetch.
-            applyResolvedIdentity(mapped, profileData);
-
-            // Sync user_metadata.role if profile role differs from metadata role.
-            // This permanently fixes stale metadata so future sessions use the correct
-            // role even if fetchProfile fails and the metadata fallback is used.
-            if (profileData?.role && mapped.role !== profileData.role) {
-              supabase.auth.updateUser({ data: { role: profileData.role } }).then(({ error }) => {
-                if (error) console.error('[Auth] Failed to sync metadata role:', error.message)
-                else console.log('[Auth] user_metadata.role synced to:', profileData.role)
-              })
-            }
-
-            const resolvedRole = (profileData?.role as UserRole) ?? mapped.role;
-            // Only bootstrap for org owners, not staff members (member/admin in organization_members).
-            if (resolvedRole === 'organization') {
-              supabase
-                .from('organization_members')
-                .select('role')
-                .eq('profile_id', supaUser.id)
-                .maybeSingle()
-                .then(({ data: membership }) => {
-                  if (!membership || membership.role === 'owner') {
-                    void maybeBootstrapOrganization({
-                      userId: supaUser.id,
-                      email: mapped.email,
-                      role: resolvedRole,
-                      organizationName: mapped.organization,
-                      borough: profileData?.borough ?? undefined,
-                    });
-                  }
-                });
-            }
-          }
-        } catch {
-          // Avoid logging auth handler details in the client
-        } finally {
-          if (isMounted) setIsResolvingRole(false);
-          if (isMounted) setIsLoading(false);
+        // For other events (SIGNED_IN, INITIAL_SESSION), run the full init
+        if (event === "SIGNED_IN") {
+          void initializeAuth(() => isMounted);
         }
       },
     );
@@ -383,7 +351,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, [mapSupabaseUserToAppUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initializeAuth]);
 
   const signIn: AuthContextType["signIn"] = async ({ email, password }) => {
     setIsSubmitting(true);
@@ -431,8 +400,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (role === "organization" && organization) {
         try {
           await invokeSetupOrganization(organization, borough || "Manhattan");
-        } catch {
-          // Non-blocking — do not log signup/org details in the client
+        } catch (e: unknown) {
+          // Non-blocking — avoid logging user-provided org details.
+          console.error("[Signup] Org setup failed.", e);
         }
       }
     } finally {
@@ -467,7 +437,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supaUser) return;
     // Never block UI on profile refresh.
     const profileData = await withTimeout(
-      authApi.fetchProfile(supaUser.id, { force: true }),
+      (signal) => authApi.fetchProfile(supaUser.id, { force: true, signal }),
       1500,
     );
     const mapped = mapSupabaseUserToAppUser(supaUser);
@@ -484,12 +454,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signOut,
         refreshProfile,
+        retryAuth,
         isLoading,
         isResolvingRole,
         isSubmitting,
+        authError,
+        clearAuthError,
       }}
     >
-      {children}
+      {authError ? (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-sm p-6">
+            <h1 className="text-lg font-bold text-gray-900">Sign-in error</h1>
+            <p className="text-sm text-gray-600 mt-2">{authError}</p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => void retryAuth()}
+                className="h-10 px-4 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="h-10 px-4 rounded-xl bg-white border border-gray-200 text-gray-800 text-sm font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }

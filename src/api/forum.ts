@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { requireUser } from './requireUser'
 
 export const forumApi = {
 
@@ -11,7 +12,7 @@ export const forumApi = {
       .select(`
         *,
         author:profiles!author_id(full_name),
-        comments:forum_comments(id)
+        comment_count
       `)
       .eq('is_moderated', false)
       .order('is_pinned', { ascending: false })
@@ -24,7 +25,7 @@ export const forumApi = {
 
     const { data, error } = await query
     if (error) throw error
-    return data.map(t => ({ ...t, comment_count: t.comments?.length || 0 }))
+    return data
   },
 
   async createThread(data: {
@@ -33,10 +34,10 @@ export const forumApi = {
     category?: string
     borough?: string
   }) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await requireUser()
     const { data: result, error } = await supabase
       .from('forum_threads')
-      .insert({ ...data, author_id: user!.id })
+      .insert({ ...data, author_id: user.id })
       .select()
       .single()
     if (error) throw error
@@ -58,12 +59,12 @@ export const forumApi = {
   },
 
   async addComment(threadId: string, content: string) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await requireUser()
     const { data, error } = await supabase
       .from('forum_comments')
       .insert({ 
         thread_id: threadId,
-        author_id: user!.id,
+        author_id: user.id,
         content
       })
       .select()

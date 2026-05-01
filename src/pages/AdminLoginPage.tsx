@@ -7,6 +7,7 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isWaitingForRole, setIsWaitingForRole] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,11 +25,13 @@ export default function AdminLoginPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsWaitingForRole(false);
     try {
       // Do not trim password: it must match Supabase exactly.
       // Trimming can break passwords that intentionally include leading/trailing whitespace.
       await signIn({ email: email.trim(), password });
-      navigate('/admin', { replace: true });
+      // Do NOT navigate immediately; wait for AuthContext to confirm DB role.
+      setIsWaitingForRole(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed.');
     }
@@ -76,9 +79,12 @@ export default function AdminLoginPage() {
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
+        {isWaitingForRole && (
+          <p className="text-sm text-gray-500">Confirming admin access…</p>
+        )}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isWaitingForRole}
           className="w-full h-11 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 disabled:opacity-60"
         >
           {isSubmitting ? 'Signing In...' : 'Sign In'}

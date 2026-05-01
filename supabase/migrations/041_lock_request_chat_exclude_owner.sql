@@ -1,21 +1,16 @@
--- Enforce: request chat is ONLY between client and assigned STAFF (member/admin),
--- never the organization owner, even if mistakenly assigned.
-
 -- Conversations SELECT
 DROP POLICY IF EXISTS "conversations_select_v4" ON public.conversations;
+DROP POLICY IF EXISTS "conversations_select_v5" ON public.conversations;
 
 CREATE POLICY "conversations_select_v5"
   ON public.conversations
   FOR SELECT
   TO authenticated
   USING (
-    -- Client always sees their own request conversation
     member_id = auth.uid()
 
-    -- Platform admin sees all
     OR public.is_admin()
 
-    -- Org-side: ONLY assigned staff (role member/admin, not owner) can see request conversations
     OR (
       conversation_type = 'request'
       AND assigned_staff_id = auth.uid()
@@ -28,12 +23,12 @@ CREATE POLICY "conversations_select_v5"
       )
     )
 
-    -- Internal: direct/group chats use participant model
     OR public.is_conversation_participant(id)
   );
 
 -- Messages SELECT
 DROP POLICY IF EXISTS "messages_select_v4" ON public.messages;
+DROP POLICY IF EXISTS "messages_select_v5" ON public.messages;
 
 CREATE POLICY "messages_select_v5"
   ON public.messages
@@ -65,6 +60,7 @@ CREATE POLICY "messages_select_v5"
 
 -- Messages INSERT
 DROP POLICY IF EXISTS "messages_insert_v4" ON public.messages;
+DROP POLICY IF EXISTS "messages_insert_v5" ON public.messages;
 
 CREATE POLICY "messages_insert_v5"
   ON public.messages
@@ -93,4 +89,3 @@ CREATE POLICY "messages_insert_v5"
         )
     )
   );
-

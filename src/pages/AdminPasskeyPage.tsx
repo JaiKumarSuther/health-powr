@@ -1,6 +1,11 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+type PasskeyResponse =
+  | { valid: true; proof: string; expiresAt: number }
+  | { valid?: false; error?: string; expiresAt?: number; proof?: string }
+  | null;
+
 export default function AdminPasskeyPage() {
   const [passkey, setPasskey] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -36,15 +41,22 @@ export default function AdminPasskeyPage() {
         body: JSON.stringify({ passkey: trimmed }),
       });
 
-      const data = await res.json().catch(() => null) as { valid?: boolean; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as PasskeyResponse;
 
-      if (!res.ok || !data?.valid) {
-        setError(data?.error || 'Invalid passkey.');
+      if (!res.ok || !data || data.valid !== true || !('proof' in data) || !data.proof || !data.expiresAt) {
+        const msg =
+          !data
+            ? 'Invalid passkey.'
+            : data.valid === true
+              ? 'Invalid passkey.'
+              : (data.error ?? 'Invalid passkey.');
+        setError(msg);
         return;
       }
 
-      // Store verification in sessionStorage (valid for this browser tab only)
-      window.sessionStorage.setItem('hp_admin_passkey_ok', 'true');
+      // Store short-lived proof in sessionStorage (valid for this browser tab only).
+      window.sessionStorage.setItem('hp_admin_passkey_proof', data.proof);
+      window.sessionStorage.setItem('hp_admin_passkey_expires_at', String(data.expiresAt));
       navigate('/admin-login', { replace: true });
     } catch {
       setError('Unable to verify passkey. Please try again.');

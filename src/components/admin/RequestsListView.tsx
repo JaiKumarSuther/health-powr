@@ -37,11 +37,14 @@ export function RequestsListView({ onViewRequest }: Props) {
   const [boroughFilter, setBoroughFilter] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState<'all' | 'urgent' | 'this_week' | 'exploring'>('all');
   const [exporting, setExporting] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   const requestsQuery = useQuery({
-    queryKey: ['admin', 'requests', 'list'],
+    queryKey: ['admin', 'requests', 'list', page],
     enabled: !!user,
-    queryFn: async () => (await requestsApi.getAllRequests()) as AdminRequest[],
+    queryFn: async () =>
+      (await requestsApi.getAllRequests(undefined, { page, pageSize })) as AdminRequest[],
   });
 
   const requests = requestsQuery.data ?? [];
@@ -77,7 +80,13 @@ export function RequestsListView({ onViewRequest }: Props) {
     if (exporting) return;
     setExporting(true);
     try {
-      const data = await requestsApi.exportCsv();
+      const all: any[] = [];
+      for (let p = 1; p < 10_000; p++) {
+        const chunk = await requestsApi.exportCsv({ page: p, pageSize: 500 });
+        all.push(...(chunk ?? []));
+        if (!chunk || chunk.length < 500) break;
+      }
+      const data = all;
       const headers = ['ID', 'Category', 'Borough', 'Status', 'Member', 'Organization', 'Created At'];
       const rows: Array<Array<string | number>> = data.map((r: any) => [
         r.id,
@@ -380,6 +389,17 @@ export function RequestsListView({ onViewRequest }: Props) {
             </div>
           </>
         )}
+      </div>
+
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => setPage((p) => p + 1)}
+          disabled={requestsQuery.isFetching || requests.length < pageSize}
+          className="h-10 px-4 rounded-xl bg-white border border-gray-200 text-gray-800 text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
+        >
+          {requestsQuery.isFetching ? 'Loading…' : requests.length < pageSize ? 'No more results' : 'Next page'}
+        </button>
       </div>
     </div>
   );

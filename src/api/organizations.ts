@@ -27,16 +27,20 @@ export const orgsApi = {
   },
 
   // Admin: get all orgs including pending
-  async getAll() {
+  async getAll(opts?: { page?: number; pageSize?: number }) {
+    const pageSize = Math.max(1, Math.min(200, opts?.pageSize ?? 50));
+    const page = Math.max(1, opts?.page ?? 1);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
     const { data, error } = await supabase
       .from("organizations")
       .select(`
         id, name, borough, status, created_at, approved_at, rejection_reason,
         email, phone, category, is_active,
         owner:profiles!owner_id(full_name, email)
-      `)
+      `, { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(from, to);
     if (error) throw error;
     return data;
   },

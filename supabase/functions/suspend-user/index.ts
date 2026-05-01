@@ -5,46 +5,71 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+function parseAllowedOrigins(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-function json(status: number, body: unknown) {
+function corsHeaders(origin: string) {
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-headers":
+      "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+  } as const;
+}
+
+function json(status: number, body: unknown, origin: string) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json",
-      "access-control-allow-origin": ALLOWED_ORIGIN,
-      "access-control-allow-headers":
-        "authorization, x-client-info, apikey, content-type",
+      ...corsHeaders(origin),
     },
   });
 }
 
 Deno.serve(async (req) => {
+  const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "").trim();
+  if (!allowedRaw) {
+    console.error("[suspend-user] Missing ALLOWED_ORIGIN secret.");
+    return new Response(JSON.stringify({ error: "Server misconfigured." }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  const origin = (req.headers.get("origin") ?? "").trim();
+  const allowed = parseAllowedOrigins(allowedRaw);
+  if (!origin || !allowed.includes(origin)) {
+    return new Response(JSON.stringify({ error: "Forbidden origin." }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
-      headers: {
-        "access-control-allow-origin": ALLOWED_ORIGIN,
-        "access-control-allow-headers":
-          "authorization, x-client-info, apikey, content-type",
-        "access-control-allow-methods": "POST, OPTIONS",
-      },
+      headers: corsHeaders(origin),
     });
   }
   if (req.method !== "POST") {
-    return json(405, { error: "Method not allowed" });
+    return json(405, { error: "Method not allowed" }, origin);
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) {
-      return json(500, { error: "Server misconfigured." });
+      return json(500, { error: "Server misconfigured." }, origin);
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!jwt) return json(401, { error: "Missing Authorization header." });
+    if (!jwt) return json(401, { error: "Missing Authorization header." }, origin);
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
@@ -53,7 +78,7 @@ Deno.serve(async (req) => {
     // Verify caller and confirm they are an admin.
     const { data: callerData, error: callerErr } = await admin.auth.getUser(jwt);
     if (callerErr || !callerData?.user) {
-      return json(401, { error: "Not authenticated." });
+      return json(401, { error: "Not authenticated." }, origin);
     }
     const callerId = callerData.user.id;
 
@@ -64,7 +89,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (callerProfile?.role !== "admin") {
-      return json(403, { error: "Forbidden: admin role required." });
+      return json(403, { error: "Forbidden: admin role required." }, origin);
     }
 
     const body = (await req.json().catch(() => null)) as null | {
@@ -77,7 +102,7 @@ Deno.serve(async (req) => {
     const suspend = body?.suspend !== false;
 
     if (!userId) {
-      return json(400, { error: "userId is required." });
+      return json(400, { error: "userId is required." }, origin);
     }
 
     // Cannot suspend another admin.
@@ -88,7 +113,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (targetProfile?.role === "admin") {
-      return json(403, { error: "Cannot suspend an admin account." });
+      return json(403, { error: "Cannot suspend an admin account." }, origin);
     }
 
     // Update auth user metadata.
@@ -96,7 +121,7 @@ Deno.serve(async (req) => {
       user_metadata: { suspended: suspend },
     });
     if (authErr) {
-      return json(500, { error: `Failed to update auth user: ${authErr.message}` });
+      return json(500, { error: `Failed to update auth user: ${authErr.message}` }, origin);
     }
 
     // Update profiles.is_active.
@@ -109,9 +134,9 @@ Deno.serve(async (req) => {
       console.error("Failed to update profiles.is_active:", profileErr.message);
     }
 
-    return json(200, { success: true, suspended: suspend });
+    return json(200, { success: true, suspended: suspend }, origin);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unexpected error";
-    return json(500, { error: `Unexpected error: ${msg}` });
+    return json(500, { error: `Unexpected error: ${msg}` }, origin);
   }
 });

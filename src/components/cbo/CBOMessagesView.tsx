@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Send, Search, Eye } from 'lucide-react';
+import { Send, Search, Eye, ChevronLeft } from 'lucide-react';
 import { getInternalConversations, getOrCreateDirectConversation, messagesApi } from '../../api/messages';
 import { requestsApi } from '../../api/requests';
 import { useAuth } from '../../contexts/AuthContext';
@@ -89,7 +89,14 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   const { user } = useAuth();
   const location = useLocation();
   const requestId = new URLSearchParams(location.search).get('requestId');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Mobile state ──
+  const [mobileView, setMobileView]             = useState<'list'|'chat'>('list');
 
   // ── Client conversations state ──
   const [topTab, setTopTab]                     = useState<TopTab>(defaultTopTab);
@@ -114,6 +121,21 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   const [orgId, setOrgId]   = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
+  // Use container width (not window) so this view is responsive even inside a narrow column.
+  // This fixes cases where the app layout constrains width but window.innerWidth stays large.
+  // (e.g. sidebar + max-width wrappers).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => setIsMobile(el.clientWidth <= 768);
+    update();
+
+    const obs = new ResizeObserver(() => update());
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   // ── Load client conversations ──
   useEffect(() => {
     if (!user) return;
@@ -127,24 +149,14 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
         // Load all org conversations (owners see all, API handles filtering)
         const convs = await messagesApi.getMyOrgConversations();
 
-        // Enrich with assigned staff info from service_requests
-        const enriched: OrgConversation[] = await Promise.all(
-          convs.map(async (conv: any) => {
-            if (!conv.request_id) return conv;
-            const { data: req } = await supabase
-              .from('service_requests')
-              .select('category, borough, status, assigned_staff:profiles!assigned_staff_id(id, full_name)')
-              .eq('id', conv.request_id)
-              .maybeSingle();
-            return {
-              ...conv,
-              category:       req?.category ?? null,
-              borough:        req?.borough ?? null,
-              status:         req?.status ?? null,
-              assigned_staff: req?.assigned_staff ?? null,
-            };
-          })
-        );
+        // Conversations already include request metadata via join in messagesApi.getMyOrgConversations().
+        const enriched: OrgConversation[] = (convs ?? []).map((conv: any) => ({
+          ...conv,
+          category:       conv?.service_request?.category ?? conv?.category ?? null,
+          borough:        conv?.service_request?.borough ?? conv?.borough ?? null,
+          status:         conv?.service_request?.status ?? conv?.status ?? null,
+          assigned_staff: conv?.service_request?.assigned_staff ?? conv?.assigned_staff ?? null,
+        }));
         setConversations(enriched);
 
         // Auto-select based on requestId param or first conv
@@ -171,22 +183,30 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   // ── Load messages for selected client conversation ──
   useEffect(() => {
     if (!selectedConvId || topTab !== 'clients') return;
+    const convId = selectedConvId;
     async function load() {
-      const data = await messagesApi.getMessages(selectedConvId!);
-      setMessages(data);
+      try {
+        const data = await messagesApi.getMessages(convId, { limit: 50 });
+        setMessages(data);
+      } catch (err) {
+        console.error('[CBOMessagesView] Failed to load messages:', err);
+      }
     }
     void load();
 
-    const poll = window.setInterval(() => void load(), 2500);
-    const sub  = messagesApi.subscribeToMessages(selectedConvId, (msg: any) => {
+    const sub  = messagesApi.subscribeToMessages(convId, (msg: any) => {
       setMessages(prev => {
-        const next = [...prev.filter(m => m.id !== msg.id), msg as Message];
+        const cast = msg as Message;
+        if (prev.some((m) => m.id === cast.id)) return prev;
+        const last = prev[prev.length - 1];
+        if (!last) return [cast];
+        if (+new Date(cast.created_at) >= +new Date(last.created_at)) return [...prev, cast];
+        const next = [...prev, cast];
         next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
         return next;
       });
     });
     return () => {
-      window.clearInterval(poll);
       void supabase.removeChannel(sub);
     };
   }, [selectedConvId, topTab]);
@@ -203,7 +223,7 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
     async function ensureAllStaffConversation(): Promise<{ id: string; subject: string | null }> {
       const convs = await getInternalConversations();
       const group = (convs as any[]).find((c) => c.conversation_type === 'group');
-      if (group?.id) return { id: group.id as string, subject: (group.subject ?? null) as string | null };
+      if (group?.id) return { id: group.id as string, subject: (group.title ?? null) as string | null };
 
       // Create a group conversation and add all org members as participants.
       const { data: conv, error: convErr } = await supabase
@@ -236,19 +256,23 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
     }
 
     async function resolveTeamConversation() {
-      if (selectedChannel === 'all_staff') {
-        const g = await ensureAllStaffConversation();
-        if (!cancelled) {
-          setTeamConvId(g.id);
-          setTeamConvSubject(g.subject);
+      try {
+        if (selectedChannel === 'all_staff') {
+          const g = await ensureAllStaffConversation();
+          if (!cancelled) {
+            setTeamConvId(g.id);
+            setTeamConvSubject(g.subject);
+          }
+          return;
         }
-        return;
-      }
 
-      const convId = await getOrCreateDirectConversation(orgId!, selectedChannel);
-      if (!cancelled) {
-        setTeamConvId(convId);
-        setTeamConvSubject(null);
+        const convId = await getOrCreateDirectConversation(orgId!, selectedChannel);
+        if (!cancelled) {
+          setTeamConvId(convId);
+          setTeamConvSubject(null);
+        }
+      } catch (err) {
+        console.error('[resolveTeamConversation] Failed to resolve team conversation:', err);
       }
     }
 
@@ -262,8 +286,12 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
     let active = true;
 
     async function load() {
-      const data = await messagesApi.getMessages(teamConvId!);
-      if (active) setTeamMessages(data as unknown as Message[]);
+      try {
+        const data = await messagesApi.getMessages(teamConvId!);
+        if (active) setTeamMessages(data as unknown as Message[]);
+      } catch (err) {
+        console.error('[CBOMessagesView] Failed to load team messages:', err);
+      }
     }
 
     void load();
@@ -300,7 +328,7 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
     setSelectedChannel('all_staff');
 
     // Ensure the group channel exists, then send the announcement into it.
-    // If pinned, persist the pinned banner content in `conversations.subject` for the group.
+    // If pinned, persist the pinned banner content in `conversations.title` for the group.
     const convs = await getInternalConversations();
     const group = (convs as any[]).find((c) => c.conversation_type === 'group');
     const groupId = group?.id ? (group.id as string) : teamConvId;
@@ -311,7 +339,7 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
       .from('conversations')
       .update({
         last_message_at: new Date().toISOString(),
-        ...(pinAnnouncement ? { subject: content } : {}),
+        ...(pinAnnouncement ? { title: content } : {}),
       })
       .eq('id', groupId);
 
@@ -334,13 +362,81 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
 
   // ─────────────────────────────────────────────────────────────────────────────
 
-  if (loadingConvs) return <div className="py-20 text-center text-[#7a9e99]">Loading messages...</div>;
+  if (loadingConvs) {
+    return (
+      <div className="flex flex-1 overflow-hidden min-h-0 bg-white rounded-none">
+        {/* Skeleton Sidebar */}
+        <div
+          className={[
+            "flex-shrink-0 border-r border-[#e8f0ee] flex flex-col",
+            isMobile ? "w-full flex" : "w-[280px] flex",
+          ].join(" ")}
+        >
+          {/* Skeleton Tabs */}
+          <div className="flex border-b border-[#e8f0ee] animate-pulse">
+            <div className="flex-1 py-4 px-4 bg-gray-100/50 m-1 rounded" />
+            <div className="flex-1 py-4 px-4 bg-gray-100/50 m-1 rounded" />
+          </div>
+          {/* Skeleton Search */}
+          <div className="px-3 py-2.5 border-b border-[#e8f0ee] animate-pulse">
+            <div className="w-full h-9 bg-gray-100/50 rounded-lg" />
+          </div>
+          {/* Skeleton List Items */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-3.5 pt-2 pb-1">
+              <div className="w-24 h-3 bg-gray-100/50 rounded animate-pulse" />
+            </div>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-start gap-2.5 px-3.5 py-3 border-b border-[#f3f4f6] animate-pulse">
+                <div className="w-[34px] h-[34px] rounded-full bg-gray-100/80 flex-shrink-0" />
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <div className="w-1/2 h-3.5 bg-gray-100/80 rounded mb-1.5" />
+                  <div className="w-3/4 h-3 bg-gray-100/50 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Skeleton Main Chat Space */}
+        {!isMobile && (
+          <div className="flex-1 flex flex-col min-w-0 bg-[#f0faf8] animate-pulse">
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-[#e8f0ee] bg-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-100/80" />
+                <div>
+                  <div className="w-32 h-4 bg-gray-100/80 rounded mb-1.5" />
+                  <div className="w-20 h-3 bg-gray-100/50 rounded" />
+                </div>
+              </div>
+            </div>
+            {/* Messages Area */}
+            <div className="flex-1 p-6 flex flex-col gap-6">
+              <div className="w-2/3 h-20 bg-white rounded-2xl rounded-tl-sm self-start shadow-sm" />
+              <div className="w-1/2 h-16 bg-[#0d9b8a]/20 rounded-2xl rounded-tr-sm self-end" />
+              <div className="w-3/4 h-24 bg-white rounded-2xl rounded-tl-sm self-start shadow-sm" />
+            </div>
+            {/* Composer Area */}
+            <div className="p-4 bg-white border-t border-[#e8f0ee]">
+              <div className="w-full h-12 bg-gray-100/50 rounded-xl" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-1 overflow-hidden min-h-0 bg-white rounded-none">
+    <div ref={containerRef} className="flex flex-1 overflow-hidden min-h-0 bg-white rounded-none">
 
       {/* ── Sidebar ── */}
-      <div className="w-[280px] flex-shrink-0 border-r border-[#e8f0ee] flex flex-col">
+      <div 
+        className={[
+          "flex-shrink-0 border-r border-[#e8f0ee] flex flex-col",
+          isMobile ? `w-full ${mobileView === "list" ? "flex" : "hidden"}` : "w-[280px] flex"
+        ].join(" ")}
+      >
 
         {/* Top tabs */}
         <div className="flex border-b border-[#e8f0ee]">
@@ -350,7 +446,10 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
           ]).map(tab => (
             <button
               key={tab.id}
-              onClick={() => setTopTab(tab.id)}
+              onClick={() => {
+                setTopTab(tab.id);
+                setMobileView('list');
+              }}
               className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
                 topTab === tab.id ? 'text-[#0d9b8a] border-[#0d9b8a]' : 'text-[#7a9e99] border-transparent hover:text-[#0f1f2e]'
               }`}
@@ -395,7 +494,10 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
               return (
                 <div
                   key={conv.id}
-                  onClick={() => setSelectedConvId(conv.id)}
+                  onClick={() => {
+                    setSelectedConvId(conv.id);
+                    if (isMobile) setMobileView('chat');
+                  }}
                   className={`flex items-start gap-2.5 px-3.5 py-3 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${
                     isActive ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
                   }`}
@@ -428,7 +530,10 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
             {/* Channels */}
             <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold text-[#7a9e99] uppercase tracking-wider">Channels</div>
             <div
-              onClick={() => setSelectedChannel('all_staff')}
+              onClick={() => {
+                setSelectedChannel('all_staff');
+                if (isMobile) setMobileView('chat');
+              }}
               className={`flex items-center gap-2.5 px-3.5 py-3 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${
                 selectedChannel === 'all_staff' ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
               }`}
@@ -445,7 +550,10 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
             {teamMembers.map(member => (
               <div
                 key={member.profile_id}
-                onClick={() => setSelectedChannel(member.profile_id)}
+                onClick={() => {
+                  setSelectedChannel(member.profile_id);
+                  if (isMobile) setMobileView('chat');
+                }}
                 className={`flex items-center gap-2.5 px-3.5 py-3 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${
                   selectedChannel === member.profile_id ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
                 }`}
@@ -465,13 +573,26 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
       </div>
 
       {/* ── Chat area ── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f6faf8]">
+      <div 
+        className={[
+          "flex-1 flex flex-col min-w-0 bg-[#f6faf8]",
+          isMobile ? (mobileView === "chat" ? "flex" : "hidden") : "flex"
+        ].join(" ")}
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 bg-white border-b border-[#e8f0ee] flex-shrink-0">
           {topTab === 'clients' && selectedConv ? (
             <>
               <div className="flex items-center gap-3">
+                {isMobile && (
+                  <button
+                    onClick={() => setMobileView('list')}
+                    className="p-1 -ml-1 mr-1 text-[#7a9e99] hover:bg-[#f6faf8] rounded-lg border-none bg-transparent cursor-pointer"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
                 <Avatar name={selectedConv.member?.full_name ?? '?'} size={38} />
                 <div>
                   <div className="text-[14px] font-bold text-[#0f1f2e]">{selectedConv.member?.full_name}</div>
@@ -481,13 +602,21 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
                   </div>
                 </div>
               </div>
-              <button className="px-3 py-1.5 border border-[#e8f0ee] rounded-lg bg-white text-[11px] font-semibold text-[#7a9e99] hover:text-[#0f1f2e] transition-colors">
+              <button className="px-3 py-1.5 border border-[#e8f0ee] rounded-lg bg-white text-[11px] font-semibold text-[#7a9e99] hover:text-[#0f1f2e] transition-colors flex-shrink-0 whitespace-nowrap">
                 View request
               </button>
             </>
           ) : topTab === 'team' ? (
             <>
               <div className="flex items-center gap-3">
+                {isMobile && (
+                  <button
+                    onClick={() => setMobileView('list')}
+                    className="p-1 -ml-1 mr-1 text-[#7a9e99] hover:bg-[#f6faf8] rounded-lg border-none bg-transparent cursor-pointer"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
                 {selectedChannel === 'all_staff' ? (
                   <div className="w-[38px] h-[38px] rounded-full bg-[#0b1d2a] flex items-center justify-center text-[16px] font-bold flex-shrink-0" style={{ color: '#2dd4bf' }}>#</div>
                 ) : (
@@ -503,12 +632,22 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
                 </div>
               </div>
               {selectedChannel === 'all_staff' && (
-                <button
-                  onClick={() => setShowAnnounceModal(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#0d9b8a] text-[11px] font-semibold text-white hover:bg-[#0b8a7a] transition-colors border-none cursor-pointer"
-                >
-                  + New announcement
-                </button>
+                isMobile ? (
+                  <button
+                    onClick={() => setShowAnnounceModal(true)}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#0d9b8a] text-white hover:bg-[#0b8a7a] transition-colors border-none cursor-pointer flex-shrink-0"
+                    title="New announcement"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAnnounceModal(true)}
+                    className="px-3 py-1.5 rounded-lg bg-[#0d9b8a] text-[11px] font-semibold text-white hover:bg-[#0b8a7a] transition-colors border-none cursor-pointer flex-shrink-0 whitespace-nowrap"
+                  >
+                    + New announcement
+                  </button>
+                )
               )}
             </>
           ) : (

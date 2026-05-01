@@ -9,47 +9,72 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+function parseAllowedOrigins(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-function json(status: number, body: unknown) {
+function corsHeaders(origin: string) {
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-headers":
+      "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+  } as const;
+}
+
+function json(status: number, body: unknown, origin: string) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json",
-      "access-control-allow-origin": ALLOWED_ORIGIN,
-      "access-control-allow-headers":
-        "authorization, x-client-info, apikey, content-type",
+      ...corsHeaders(origin),
     },
   });
 }
 
 Deno.serve(async (req) => {
+  const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "").trim();
+  if (!allowedRaw) {
+    console.error("[setup-organization] Missing ALLOWED_ORIGIN secret.");
+    return new Response(JSON.stringify({ error: "Server misconfigured." }), {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  const origin = (req.headers.get("origin") ?? "").trim();
+  const allowed = parseAllowedOrigins(allowedRaw);
+  if (!origin || !allowed.includes(origin)) {
+    return new Response(JSON.stringify({ error: "Forbidden origin." }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
-      headers: {
-        "access-control-allow-origin": ALLOWED_ORIGIN,
-        "access-control-allow-headers":
-          "authorization, x-client-info, apikey, content-type",
-        "access-control-allow-methods": "POST, OPTIONS",
-      },
+      headers: corsHeaders(origin),
     });
   }
   if (req.method !== "POST") {
-    return json(405, { error: "Method not allowed" });
+    return json(405, { error: "Method not allowed" }, origin);
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) {
-      return json(500, { error: "Server misconfigured: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY." });
+      return json(500, { error: "Server misconfigured: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY." }, origin);
     }
 
     // Verify the caller
     const authHeader = req.headers.get("Authorization") ?? "";
     const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!jwt) return json(401, { error: "Missing Authorization header." });
+    if (!jwt) return json(401, { error: "Missing Authorization header." }, origin);
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
@@ -57,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: callerData, error: callerErr } = await admin.auth.getUser(jwt);
     if (callerErr || !callerData?.user) {
-      return json(401, { error: "Not authenticated." });
+      return json(401, { error: "Not authenticated." }, origin);
     }
     const callerId = callerData.user.id;
     const callerEmail = callerData.user.email ?? "";
@@ -75,7 +100,7 @@ Deno.serve(async (req) => {
     const borough = body?.borough?.trim() || "Manhattan";
 
     if (!orgName) {
-      return json(400, { error: "orgName is required." });
+      return json(400, { error: "orgName is required." }, origin);
     }
 
     // Ensure caller exists in public.profiles before writing FKs.
@@ -93,7 +118,7 @@ Deno.serve(async (req) => {
         { onConflict: "id" },
       );
     if (profileErr) {
-      return json(500, { error: `Failed to ensure profile: ${profileErr.message}` });
+      return json(500, { error: `Failed to ensure profile: ${profileErr.message}` }, origin);
     }
 
     // Idempotency check: if user is already an owner of an org with this name,
@@ -106,7 +131,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing?.organization_id) {
-      return json(200, { success: true, organizationId: existing.organization_id, alreadyExisted: true });
+      return json(200, { success: true, organizationId: existing.organization_id, alreadyExisted: true }, origin);
     }
 
     // Upsert the organization on owner_id — safe against race-condition duplicate calls.
@@ -127,7 +152,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (orgErr) {
-      return json(500, { error: `Failed to create organization: ${orgErr.message}` });
+      return json(500, { error: `Failed to create organization: ${orgErr.message}` }, origin);
     }
 
     // If ignoreDuplicates suppressed the upsert, fetch the existing row.
@@ -141,7 +166,7 @@ Deno.serve(async (req) => {
         .eq("owner_id", callerId)
         .maybeSingle();
       if (fetchErr || !existingOrg?.id) {
-        return json(500, { error: "Failed to retrieve organization after upsert." });
+        return json(500, { error: "Failed to retrieve organization after upsert." }, origin);
       }
       orgId = existingOrg.id;
     }
@@ -156,13 +181,13 @@ Deno.serve(async (req) => {
     if (memberErr) {
       // Duplicate membership is acceptable (idempotent)
       if (!memberErr.code?.startsWith("23505") && !memberErr.message?.toLowerCase().includes("unique")) {
-        return json(500, { error: `Failed to add organization membership: ${memberErr.message}` });
+        return json(500, { error: `Failed to add organization membership: ${memberErr.message}` }, origin);
       }
     }
 
-    return json(200, { success: true, organizationId: orgId });
+    return json(200, { success: true, organizationId: orgId }, origin);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unexpected error";
-    return json(500, { error: `Unexpected error: ${msg}` });
+    return json(500, { error: `Unexpected error: ${msg}` }, origin);
   }
 });

@@ -112,37 +112,71 @@ function generateTempPassword(): string {
     + digits[arr[2] % digits.length]
     + symbols[arr[3] % symbols.length];
   for (let i = 4; i < 12; i++) pass += all[arr[i] % all.length];
-  // shuffle
-  return pass.split("").sort(() => 0.5 - Math.random()).join("");
+  // Crypto shuffle (Fisher–Yates)
+  const chars = pass.split("");
+  const rnd = new Uint8Array(chars.length);
+  crypto.getRandomValues(rnd);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = rnd[i] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
 }
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+function parseAllowedOrigins(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-function json(status: number, body: unknown) {
+function corsHeaders(origin: string) {
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-headers":
+      "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+  } as const;
+}
+
+function json(status: number, body: unknown, origin: string) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json",
-      "access-control-allow-origin": ALLOWED_ORIGIN,
-      "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+      ...corsHeaders(origin),
     },
   });
 }
 
 Deno.serve(async (req) => {
   try {
+    const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "").trim();
+    if (!allowedRaw) {
+      console.error("[create-staff-account] Missing ALLOWED_ORIGIN secret.");
+      return new Response(JSON.stringify({ error: true, message: "Server misconfigured." }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    const origin = (req.headers.get("origin") ?? "").trim();
+    const allowed = parseAllowedOrigins(allowedRaw);
+    if (!origin || !allowed.includes(origin)) {
+      return new Response(JSON.stringify({ error: true, message: "Forbidden origin." }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     if (req.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
-        headers: {
-          "access-control-allow-origin": ALLOWED_ORIGIN,
-          "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
-          "access-control-allow-methods": "POST, OPTIONS",
-        },
+        headers: corsHeaders(origin),
       });
     }
     if (req.method !== "POST") {
-      return json(405, { error: true, message: "Method not allowed" });
+      return json(405, { error: true, message: "Method not allowed" }, origin);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -151,7 +185,7 @@ Deno.serve(async (req) => {
       return json(500, {
         error: true,
         message: "Server misconfigured: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.",
-      });
+      }, origin);
     }
     // Hard requirement: do not create staff accounts unless email delivery is configured.
     // This ensures credentials are delivered and avoids orphaned accounts.
@@ -160,13 +194,13 @@ Deno.serve(async (req) => {
         error: true,
         message:
           "Email delivery is not configured. Set RESEND_API_KEY/RESEND_FROM function secrets to enable staff onboarding.",
-      });
+      }, origin);
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader) return json(401, { error: true, message: "Missing Authorization header." });
+    if (!authHeader) return json(401, { error: true, message: "Missing Authorization header." }, origin);
     const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!jwt) return json(401, { error: true, message: "Missing bearer token." });
+    if (!jwt) return json(401, { error: true, message: "Missing bearer token." }, origin);
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
@@ -187,7 +221,7 @@ Deno.serve(async (req) => {
       !payload.username ||
       !payload.personalEmail
     ) {
-      return json(400, { error: true, message: "Missing required fields." });
+      return json(400, { error: true, message: "Missing required fields." }, origin);
     }
 
     const personalEmail = payload.personalEmail.trim().toLowerCase();
@@ -195,10 +229,10 @@ Deno.serve(async (req) => {
     const orgName = String(payload.organizationName ?? "").trim();
 
     if (!isValidEmail(personalEmail)) {
-      return json(400, { error: true, message: "Invalid personalEmail. Provide a valid email address." });
+      return json(400, { error: true, message: "Invalid personalEmail. Provide a valid email address." }, origin);
     }
     if (!orgName) {
-      return json(400, { error: true, message: "Invalid organizationName." });
+      return json(400, { error: true, message: "Invalid organizationName." }, origin);
     }
     if (
       !username ||
@@ -209,15 +243,15 @@ Deno.serve(async (req) => {
       return json(400, {
         error: true,
         message: "Invalid username. Use 3-24 chars: a-z, 0-9, dot, underscore, dash.",
-      });
+      }, origin);
     }
     if (payload.membershipRole !== "admin" && payload.membershipRole !== "member") {
-      return json(400, { error: true, message: "Invalid membershipRole." });
+      return json(400, { error: true, message: "Invalid membershipRole." }, origin);
     }
 
     // Verify caller is authenticated and is owner/admin of the org
     const { data: caller, error: callerErr } = await admin.auth.getUser(jwt);
-    if (callerErr || !caller?.user) return json(401, { error: true, message: "Not authenticated." });
+    if (callerErr || !caller?.user) return json(401, { error: true, message: "Not authenticated." }, origin);
 
     const callerId = caller.user.id;
     const { data: membership, error: membershipErr } = await admin
@@ -226,9 +260,9 @@ Deno.serve(async (req) => {
       .eq("organization_id", payload.organizationId)
       .eq("profile_id", callerId)
       .maybeSingle();
-    if (membershipErr) return json(500, { error: true, message: `Failed to verify membership. ${membershipErr.message}` });
+    if (membershipErr) return json(500, { error: true, message: `Failed to verify membership. ${membershipErr.message}` }, origin);
     if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
-      return json(403, { error: true, message: "Only org owner/admin can create staff accounts." });
+      return json(403, { error: true, message: "Only org owner/admin can create staff accounts." }, origin);
     }
 
     // Ensure username is unique within the org
@@ -239,10 +273,10 @@ Deno.serve(async (req) => {
       .eq("username", username)
       .maybeSingle();
     if (existingUErr) {
-      return json(500, { error: true, message: `Failed to validate username uniqueness. ${existingUErr.message}` });
+      return json(500, { error: true, message: `Failed to validate username uniqueness. ${existingUErr.message}` }, origin);
     }
     if (existingU) {
-      return json(400, { error: true, message: "Username already exists in this organization." });
+      return json(400, { error: true, message: "Username already exists in this organization." }, origin);
     }
 
     // Use the staff member's personal email as their auth login email so:
@@ -273,7 +307,7 @@ Deno.serve(async (req) => {
 
     if (createErr || !created?.user) {
       const msg = createErr?.message ?? "Failed to create user.";
-      return json(400, { error: true, message: msg });
+      return json(400, { error: true, message: msg }, origin);
     }
 
     const staffId = created.user.id;
@@ -285,7 +319,7 @@ Deno.serve(async (req) => {
       full_name: payload.fullName ?? null,
       role: "organization",
     });
-    if (profileErr) return json(500, { error: true, message: `Failed to write profile. ${profileErr.message}` });
+    if (profileErr) return json(500, { error: true, message: `Failed to write profile. ${profileErr.message}` }, origin);
 
     // Insert organization membership
     const { error: memberErr } = await admin.from("organization_members").insert({
@@ -294,7 +328,7 @@ Deno.serve(async (req) => {
       role: payload.membershipRole,
       username,
     });
-    if (memberErr) return json(500, { error: true, message: `Failed to add organization membership. ${memberErr.message}` });
+    if (memberErr) return json(500, { error: true, message: `Failed to add organization membership. ${memberErr.message}` }, origin);
 
     const emailResult = await sendStaffCredentialsEmail({
       to: personalEmail,
@@ -316,7 +350,7 @@ Deno.serve(async (req) => {
       return json(502, {
         error: true,
         message: `Failed to send staff credentials email (${emailResult.provider}): ${emailResult.error}`,
-      });
+      }, origin);
     }
 
     return json(200, {
@@ -333,9 +367,17 @@ Deno.serve(async (req) => {
         : emailResult.attempted
           ? `Staff account created, but email delivery failed (${emailResult.provider}): ${emailResult.error}. Share credentials securely with the staff member.`
           : "Staff account created. Share credentials securely with the staff member.",
-    });
+    }, origin);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unexpected error";
-    return json(500, { error: true, message: `Unexpected error creating staff account. ${msg}` });
+    // If CORS/origin failed earlier, we'd have returned already. Origin should be present here.
+    const origin = (e as any)?.origin ?? (Deno.env.get("ALLOWED_ORIGIN") ?? "").split(",")[0]?.trim() ?? "";
+    if (!origin) {
+      return new Response(JSON.stringify({ error: true, message: `Unexpected error creating staff account. ${msg}` }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return json(500, { error: true, message: `Unexpected error creating staff account. ${msg}` }, origin);
   }
 });

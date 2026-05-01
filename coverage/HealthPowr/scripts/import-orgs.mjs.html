@@ -1,0 +1,496 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for HealthPowr/scripts/import-orgs.mjs</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">HealthPowr/scripts</a> import-orgs.mjs</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/136</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/1</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/136</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import { createClient } from '@supabase/supabase-js'</span></span></span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >const SUPABASE_URL = process.env.SUPABASE_URL</span>
+<span class="cstat-no" title="statement not covered" >const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {</span>
+<span class="cstat-no" title="statement not covered" >  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars')</span>
+<span class="cstat-no" title="statement not covered" >  process.exit(1)</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >async function geocode(address, borough) {</span>
+<span class="cstat-no" title="statement not covered" >  const q = encodeURIComponent(`${address}, ${borough}, New York City, NY`)</span>
+<span class="cstat-no" title="statement not covered" >  const url = `https://nominatim.openstreetmap.org/search?format=json&amp;limit=1&amp;q=${q}&amp;viewbox=-74.259090,40.477399,-73.700272,40.917577&amp;bounded=1&amp;countrycodes=us`</span>
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    const res = await fetch(url, { headers: { 'User-Agent': 'HealthPowr/1.0' } })</span>
+<span class="cstat-no" title="statement not covered" >    const data = await res.json()</span>
+<span class="cstat-no" title="statement not covered" >    if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }</span>
+<span class="cstat-no" title="statement not covered" >  } catch {}</span>
+<span class="cstat-no" title="statement not covered" >  return { lat: null, lng: null }</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >function parseBorough(s) {</span>
+<span class="cstat-no" title="statement not covered" >  if (!s) return 'Brooklyn'</span>
+<span class="cstat-no" title="statement not covered" >  const b = s.toLowerCase()</span>
+<span class="cstat-no" title="statement not covered" >  if (b.includes('manhattan')) return 'Manhattan'</span>
+<span class="cstat-no" title="statement not covered" >  if (b.includes('brooklyn')) return 'Brooklyn'</span>
+<span class="cstat-no" title="statement not covered" >  if (b.includes('queens')) return 'Queens'</span>
+<span class="cstat-no" title="statement not covered" >  if (b.includes('bronx')) return 'Bronx'</span>
+<span class="cstat-no" title="statement not covered" >  if (b.includes('staten')) return 'Staten Island'</span>
+<span class="cstat-no" title="statement not covered" >  return 'Brooklyn'</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >function parsePhone(s) {</span>
+<span class="cstat-no" title="statement not covered" >  if (!s) return null</span>
+<span class="cstat-no" title="statement not covered" >  const m = s.match(/\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}/)</span>
+<span class="cstat-no" title="statement not covered" >  return m ? m[0].replace(/\D/g, '').slice(0, 10) : null</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >function parseWebsite(s) {</span>
+<span class="cstat-no" title="statement not covered" >  if (!s) return null</span>
+<span class="cstat-no" title="statement not covered" >  const m = s.match(/https?:\/\/[^\s,]+|[a-z0-9\-]+\.[a-z]{2,}(?:\/[^\s,]*)?/i)</span>
+<span class="cstat-no" title="statement not covered" >  if (!m) return null</span>
+<span class="cstat-no" title="statement not covered" >  return m[0].startsWith('http') ? m[0] : `https://${m[0]}`</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >function parseEmail(s) {</span>
+<span class="cstat-no" title="statement not covered" >  if (!s) return null</span>
+<span class="cstat-no" title="statement not covered" >  const m = s.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/)</span>
+<span class="cstat-no" title="statement not covered" >  return m ? m[0] : null</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >function parseLangs(s) {</span>
+<span class="cstat-no" title="statement not covered" >  if (!s) return ['en']</span>
+<span class="cstat-no" title="statement not covered" >  const map = { english:'en', spanish:'es', french:'fr', creole:'ht',</span>
+<span class="cstat-no" title="statement not covered" >    'haitian creole':'ht', arabic:'ar', chinese:'zh', cantonese:'zh',</span>
+<span class="cstat-no" title="statement not covered" >    mandarin:'zh', russian:'ru', hebrew:'he', yiddish:'yi', bengali:'bn',</span>
+<span class="cstat-no" title="statement not covered" >    urdu:'ur', hindi:'hi', punjabi:'pa', polish:'pl', greek:'el' }</span>
+<span class="cstat-no" title="statement not covered" >  const codes = s.split(/[,\/]/).map(l =&gt; map[l.trim().toLowerCase()] || 'en')</span>
+<span class="cstat-no" title="statement not covered" >    .filter((v,i,a) =&gt; a.indexOf(v) === i)</span>
+<span class="cstat-no" title="statement not covered" >  if (!codes.includes('en')) codes.unshift('en')</span>
+<span class="cstat-no" title="statement not covered" >  return codes</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >const orgs = [</span>
+<span class="cstat-no" title="statement not covered" >  // FOOD</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Met Council', address:'77 Water St', borough:'Manhattan (FiDi)', desc:'Largest Jewish communal safety net. Kosher food network and emergency pantry.', contact:'metcouncil.org / (212) 453-9511 / acyperstein@metcouncil.org', hours:'Mon–Fri: 9AM–5PM', langs:'Hebrew, Yiddish, Russian', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'ACTS Community Dev Corp', address:'3012 Mermaid Ave, Brooklyn', borough:'Brooklyn (Coney Island)', desc:'Emergency food packages and outreach to families in Coney Island.', contact:'(718) 415-1170 / Coneylighthouse@aol.com', hours:'Call for distribution times', langs:'English', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Apna Brooklyn Community Center', address:'Brighton Beach Ave, Brooklyn', borough:'Brooklyn (Brighton Beach)', desc:'Community-led pantry serving immigrant families with culturally appropriate groceries.', contact:'(718) 513-4700 / erum.hanif@apnabrooklyn.com', hours:'Fri: 10AM–2PM', langs:'Bengali, Urdu, Arabic', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Masbia of Flatbush', address:'1372 Coney Island Ave, Brooklyn', borough:'Brooklyn (Flatbush)', desc:'Soup kitchen and pantry with appointment-based service for dignity.', contact:'masbia.org / (718) 972-4446', hours:'Mon–Thu: 11AM–7PM', langs:'Hebrew, Yiddish', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'St. John\'s Bread and Life', address:'795 Lexington Ave, Brooklyn', borough:'Brooklyn (Bed-Stuy)', desc:'Digital Choice pantry and mobile soup kitchen serving 2500+ meals daily.', contact:'breadandlife.org / (718) 574-0058', hours:'Mon–Fri: 8AM–12PM', langs:'Spanish', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'The Campaign Against Hunger', address:'2010 Fulton St, Brooklyn', borough:'Brooklyn (Bed-Stuy)', desc:"One of NYC's largest food distributors using a Supermarket model.", contact:'tcahnyc.org / (718) 773-3551', hours:'Mon–Fri: 10AM–3PM', langs:'Spanish, Creole', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'CHiPS Food Pantry', address:'25 4th Ave, Brooklyn', borough:'Brooklyn (Park Slope)', desc:'Soup kitchen and food pantry with a no questions asked dignity model.', contact:'chipsonline.org / (718) 237-2962', hours:'Mon–Sat: 11:30AM–1PM', langs:'Spanish', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Collective Focus Resource Hub', address:'Bushwick Ave, Brooklyn', borough:'Brooklyn (Bushwick)', desc:'Mutual aid hub with community fridge and Free Store for groceries.', contact:'collectivefocus.site / info@collectivefocus.site', hours:'Daily: 12PM–6PM', langs:'Spanish', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Reaching Out Community Services', address:'Bensonhurst, Brooklyn', borough:'Brooklyn (Bensonhurst)', desc:'Digital Pantry where clients use a keycard to select their own groceries.', contact:'rcsprograms.org / (718) 373-4565', hours:'Mon–Fri: 10AM–4PM', langs:'Spanish, Cantonese', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Sacred Center for South Asians', address:'Flushing, Queens', borough:'Queens (Flushing)', desc:'Food pantry meeting the dietary needs of South Asian New Yorkers.', contact:'sacssny.org / (718) 321-7929', hours:'Wed: 10AM–2PM', langs:'Hindi, Urdu, Punjabi', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Elmcor Youth &amp; Adult Activities', address:'Corona Ave, Queens', borough:'Queens (Corona)', desc:'Longstanding community pantry providing bags and hot senior meals.', contact:'elmcor.org / (718) 651-0096', hours:'Tue/Thu: 10AM–12:30PM', langs:'Spanish', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Commonpoint Queens', address:'108-25 Queens Blvd, Queens', borough:'Queens (Forest Hills)', desc:'Client-choice digital grocery ordering. Emergency food packages available.', contact:'commonpoint.org / (718) 268-5011', hours:'Mon–Wed: 9AM–6:30PM; Sun: 10AM–2PM', langs:'Spanish, Russian', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Community Kitchen Food Bank NYC', address:'W 125th St, Manhattan', borough:'Manhattan (Harlem)', desc:"Farmer's Market style distribution twice monthly plus daily hot meals.", contact:'foodbanknyc.org / (212) 566-7855', hours:'Mon/Wed/Fri: 8AM–6PM', langs:'Spanish, French', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'BronxWorks Food Pantry', address:'60 E Tremont Ave, Bronx', borough:'Bronx', desc:'Client-choice pantries by appointment. Distributed 33k+ bags in 2026.', contact:'bronxworks.org / (646) 596-1316', hours:'Call hotline for schedule', langs:'Spanish', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Project Hospitality Food Hub', address:'100 Central Ave, Staten Island', borough:'Staten Island (St. George)', desc:'One-stop hub for food, clothing, and social service enrollment.', contact:'projecthospitality.org / (718) 448-1544', hours:'Tue/Thu: 9AM–11AM', langs:'Spanish, Arabic', cat:'food' },</span>
+<span class="cstat-no" title="statement not covered" >  // HOUSING</span>
+<span class="cstat-no" title="statement not covered" >  { name:'The Door Covenant House', address:'555 Broome St, Manhattan', borough:'Manhattan (SoHo)', desc:'Crisis housing and residential programs for homeless youth ages 16-24.', contact:'door.org / (212) 941-9090', hours:'Mon–Fri: 9AM–5PM', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Ali Forney Center', address:'224 W 35th St, Manhattan', borough:'Manhattan', desc:'24-hour drop-in center and emergency beds for homeless LGBTQ+ youth.', contact:'aliforneycenter.org / (212) 206-0574', hours:'24/7', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Lenox Hill Neighborhood House', address:'331 E 70th St, Manhattan', borough:'Manhattan (UES)', desc:'100-bed shelter for women with mental health needs plus eviction legal help.', contact:'lenoxhill.org / (212) 744-5022', hours:'Mon–Fri: 9AM–5PM', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Nazareth Housing', address:'214 E 3rd St, Manhattan', borough:'Manhattan (LES)', desc:'Emergency shelter, eviction prevention grants, and housing stability support.', contact:'nazarethhousingnyc.org / (212) 777-1010', hours:'Mon–Fri: 9AM–5PM', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'New Destiny Housing', address:'255 W 23rd St, Manhattan', borough:'Manhattan (Chelsea)', desc:'Permanent affordable housing exclusively for domestic violence survivors.', contact:'newdestinyhousing.org / (646) 472-0262', hours:'Mon–Fri: 9AM–5PM', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Covenant House New York', address:"460 W 41st St, Manhattan", borough:"Manhattan (Hell's Kitchen)", desc:'24/7 emergency intake for homeless youth with medical care and job training.', contact:'covenanthouse.org / (212) 613-0300', hours:'24/7', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'Breaking Ground', address:'505 8th Ave, Manhattan', borough:'Manhattan', desc:'24/7 street outreach teams and Safe Haven transitional housing sites.', contact:'breakingground.org / (800) 548-1511', hours:'24/7 Outreach', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'The Gathering Place CAMBA', address:'East New York, Brooklyn', borough:'Brooklyn (East NY)', desc:'Drop-in center with hot meals, clothing, and housing placement services.', contact:'camba.org / (718) 240-6444', hours:'Mon–Fri: 9AM–5PM', langs:'Spanish, Creole', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >  { name:'BRC Living Room Bronx', address:'Hunts Point Ave, Bronx', borough:'Bronx (Hunts Point)', desc:'24/7 multi-service drop-in center for chronically homeless adults.', contact:'brc.org / (718) 893-3606', hours:'24/7', langs:'Spanish', cat:'housing' },</span>
+<span class="cstat-no" title="statement not covered" >]</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >async function run() {</span>
+<span class="cstat-no" title="statement not covered" >  // Seeded orgs have no owner — owner_id will be null</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >  let ok = 0, skip = 0, fail = 0</span>
+<span class="cstat-no" title="statement not covered" >  for (const o of orgs) {</span>
+<span class="cstat-no" title="statement not covered" >    const borough = parseBorough(o.borough)</span>
+<span class="cstat-no" title="statement not covered" >    // Check duplicate</span>
+<span class="cstat-no" title="statement not covered" >    const { data: ex } = await supabase.from('organizations').select('id').eq('name', o.name).maybeSingle()</span>
+<span class="cstat-no" title="statement not covered" >    if (ex) { console.log(`SKIP: ${o.name}`); skip++; continue }</span>
+<span class="cstat-no" title="statement not covered" >    // Geocode</span>
+<span class="cstat-no" title="statement not covered" >    console.log(`Geocoding ${o.name}...`)</span>
+<span class="cstat-no" title="statement not covered" >    const { lat, lng } = await geocode(o.address, borough)</span>
+<span class="cstat-no" title="statement not covered" >    await new Promise(r =&gt; setTimeout(r, 1200)) // Nominatim rate limit</span>
+<span class="cstat-no" title="statement not covered" >    // Insert org</span>
+<span class="cstat-no" title="statement not covered" >    const { data: org, error: e1 } = await supabase.from('organizations').insert({</span>
+<span class="cstat-no" title="statement not covered" >      // owner_id omitted — these are seeded orgs with no real owner account</span>
+<span class="cstat-no" title="statement not covered" >      name: o.name, description: o.desc,</span>
+<span class="cstat-no" title="statement not covered" >      borough, address: o.address, phone: parsePhone(o.contact),</span>
+<span class="cstat-no" title="statement not covered" >      email: parseEmail(o.contact), website: parseWebsite(o.contact),</span>
+<span class="cstat-no" title="statement not covered" >      status: 'approved',</span>
+<span class="cstat-no" title="statement not covered" >      // approved_by omitted for seeded orgs</span>
+<span class="cstat-no" title="statement not covered" >      approved_at: new Date().toISOString(),</span>
+<span class="cstat-no" title="statement not covered" >      latitude: lat, longitude: lng,</span>
+<span class="cstat-no" title="statement not covered" >      hours_of_operation: { general: o.hours },</span>
+<span class="cstat-no" title="statement not covered" >      languages_supported: parseLangs(o.langs),</span>
+<span class="cstat-no" title="statement not covered" >      category: [o.cat], is_active: true,</span>
+<span class="cstat-no" title="statement not covered" >    }).select('id').single()</span>
+<span class="cstat-no" title="statement not covered" >    if (e1) { console.error(`FAIL org ${o.name}:`, e1.message); fail++; continue }</span>
+<span class="cstat-no" title="statement not covered" >    // Insert service</span>
+<span class="cstat-no" title="statement not covered" >    const { error: e2 } = await supabase.from('services').insert({</span>
+<span class="cstat-no" title="statement not covered" >      organization_id: org.id, name: o.name, description: o.desc,</span>
+<span class="cstat-no" title="statement not covered" >      category: o.cat, borough, hours: o.hours,</span>
+<span class="cstat-no" title="statement not covered" >      is_available: true, latitude: lat, longitude: lng,</span>
+<span class="cstat-no" title="statement not covered" >    })</span>
+<span class="cstat-no" title="statement not covered" >    if (e2) console.error(`FAIL service ${o.name}:`, e2.message)</span>
+<span class="cstat-no" title="statement not covered" >    console.log(`✓ ${o.name} (${borough}) [${lat}, ${lng}]`)</span>
+<span class="cstat-no" title="statement not covered" >    ok++</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`\nDone: ${ok} imported, ${skip} skipped, ${fail} failed`)</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+<span class="cstat-no" title="statement not covered" ></span>
+<span class="cstat-no" title="statement not covered" >run()</span>
+&nbsp;
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-04-30T11:57:48.767Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

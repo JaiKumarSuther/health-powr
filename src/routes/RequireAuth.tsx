@@ -1,7 +1,52 @@
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../types/user';
+
+type ProofVerifyResponse =
+  | { valid: true; expiresAt?: number }
+  | { valid?: false; error?: string }
+  | null;
+
+async function verifyAdminPasskeyProof(): Promise<boolean> {
+  const proof =
+    typeof window !== 'undefined'
+      ? window.sessionStorage.getItem('hp_admin_passkey_proof')
+      : null;
+  const expRaw =
+    typeof window !== 'undefined'
+      ? window.sessionStorage.getItem('hp_admin_passkey_expires_at')
+      : null;
+
+  if (!proof || !expRaw) return false;
+  const exp = Number(expRaw);
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(exp) || exp <= now) return false;
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!supabaseUrl || !anonKey) return false;
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/verify-admin-passkey`, {
+    method: 'POST',
+    headers: {
+      apikey: anonKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ proof }),
+  });
+
+  const data = (await res.json().catch(() => null)) as ProofVerifyResponse;
+  if (!res.ok || !data || data.valid !== true) return false;
+  return true;
+}
+
+function clearAdminPasskeyProof() {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem('hp_admin_passkey_proof');
+  window.sessionStorage.removeItem('hp_admin_passkey_expires_at');
+}
 
 export function RequireAuth({
   children,
@@ -14,6 +59,30 @@ export function RequireAuth({
 }) {
   const { user, profile, isLoading, isResolvingRole } = useAuth();
   const location = useLocation();
+  const isAdminRoute = role === 'admin' || allowedRoles?.includes('admin');
+  const [isCheckingAdminProof, setIsCheckingAdminProof] = useState(isAdminRoute);
+  const [adminProofOk, setAdminProofOk] = useState<boolean>(false);
+
+  // Admin passkey is required for ALL admin access (even if already authenticated).
+  useEffect(() => {
+    if (!isAdminRoute) return;
+    if (isLoading || isResolvingRole) return;
+    let alive = true;
+    setIsCheckingAdminProof(true);
+    void verifyAdminPasskeyProof()
+      .then((ok) => {
+        if (!alive) return;
+        setAdminProofOk(ok);
+        if (!ok) clearAdminPasskeyProof();
+      })
+      .finally(() => {
+        if (!alive) return;
+        setIsCheckingAdminProof(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [isAdminRoute, isLoading, isResolvingRole, location.pathname]);
 
   if (isLoading || isResolvingRole) {
     return (
@@ -23,12 +92,20 @@ export function RequireAuth({
     );
   }
 
+  if (isAdminRoute && isCheckingAdminProof) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Verifying admin access…</div>
+      </div>
+    );
+  }
+
+  if (isAdminRoute && !adminProofOk) {
+    return <Navigate to="/admin-passkey" replace state={{ from: location }} />;
+  }
+
   if (!user) {
-    const isAdminRoute = role === 'admin' || allowedRoles?.includes('admin');
-    if (isAdminRoute) {
-      const passkeyVerified = typeof window !== 'undefined' && window.sessionStorage.getItem('hp_admin_passkey_ok') === 'true';
-      return <Navigate to={passkeyVerified ? '/admin-login' : '/admin-passkey'} replace state={{ from: location }} />;
-    }
+    if (isAdminRoute) return <Navigate to="/admin-login" replace state={{ from: location }} />;
     return <Navigate to="/" replace state={{ from: location }} />;
   }
 

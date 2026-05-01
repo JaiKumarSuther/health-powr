@@ -70,7 +70,7 @@ function viewFromPath(pathname: string): CBOView | null {
 }
 
 export function CBODashboard() {
-  const { user, profile, signOut, isLoading } = useAuth();
+  const { user, profile, signOut, isLoading, isResolvingRole, retryAuth } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -79,8 +79,16 @@ export function CBODashboard() {
   const [membershipLoaded, setMembershipLoaded] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
+  const [loadError, setLoadError] = useState(false);
   const bootstrapAttempted = useRef(false);
   const isRestrictedRole = membershipRole === 'member' || membershipRole === null;
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isResolvingRole || !membershipLoaded) setLoadError(true);
+    }, 15000);
+    return () => clearTimeout(timeout);
+  }, [isResolvingRole, membershipLoaded]);
 
   // Derive current view from URL — falls back to null until membership loads
   const urlView = viewFromPath(pathname);
@@ -194,7 +202,39 @@ export function CBODashboard() {
     navigate('/', { replace: true });
   };
 
-  if (isLoading) {
+  if (loadError && !membershipLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-6 text-center">
+          <p className="text-lg font-bold text-gray-900">Workspace is taking too long to load</p>
+          <p className="text-sm text-gray-600 mt-2">
+            We are having trouble connecting to your organization. This can happen on cold starts.
+          </p>
+          <div className="mt-5 flex gap-3 justify-center">
+            <button
+              type="button"
+              onClick={async () => {
+                setLoadError(false);
+                await retryAuth();
+              }}
+              className="h-10 px-6 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="h-10 px-6 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || isResolvingRole) {
     return (
       <div className="hp-page flex items-center justify-center">
         <div className="animate-spin rounded-full h-9 w-9 border-[3px] border-gray-200 border-t-teal-600" />

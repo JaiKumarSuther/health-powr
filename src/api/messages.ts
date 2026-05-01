@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { requireUser } from './requireUser'
 
 export const messagesApi = {
 
@@ -36,27 +37,37 @@ export const messagesApi = {
   },
 
   // Get messages in a conversation
-  async getMessages(conversationId: string) {
-    const { data, error } = await supabase
+  async getMessages(
+    conversationId: string,
+    opts?: { limit?: number; beforeCreatedAt?: string }
+  ) {
+    const limit = Math.max(1, Math.min(200, opts?.limit ?? 50));
+    let query = supabase
       .from('messages')
       .select(`
         *,
         sender:profiles!sender_id(full_name, avatar_url)
       `)
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+
+    if (opts?.beforeCreatedAt) {
+      query = query.lt('created_at', opts.beforeCreatedAt)
+    }
+
+    const { data, error } = await query.limit(limit)
     if (error) throw error
-    return data
+    return (data ?? []).slice().reverse()
   },
 
   // Send a message
   async send(conversationId: string, content: string) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await requireUser()
     const { data, error } = await supabase
       .from('messages')
       .insert({
         conversation_id: conversationId,
-        sender_id: user!.id,
+        sender_id: user.id,
         content
       })
       .select()
@@ -67,7 +78,7 @@ export const messagesApi = {
 
   // Get all conversations for current user
   async getMyConversations() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await requireUser()
     const { data, error } = await supabase
       .from('conversations')
       .select(`
@@ -88,8 +99,8 @@ export const messagesApi = {
         ),
         last_message:messages(content, created_at)
       `)
-      .eq('member_id', user!.id)
-      // Note: order by last_message_at would require a field in conversations
+      .eq('member_id', user.id)
+      .order('last_message_at', { ascending: false })
       .order('created_at', { ascending: false })
     
     if (error) throw error
@@ -98,8 +109,7 @@ export const messagesApi = {
 
   // Get all conversations for current organization
   async getMyOrgConversations() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    const user = await requireUser()
 
     const { data: membership } = await supabase
       .from('organization_members')
@@ -140,8 +150,10 @@ export const messagesApi = {
           ),
           service_request:service_requests!request_id (
             id,
+            category,
             status,
             borough,
+            assigned_staff:profiles!assigned_staff_id(id, full_name, avatar_url),
             services (
               name,
               category
@@ -180,8 +192,10 @@ export const messagesApi = {
         ),
         service_request:service_requests!request_id (
           id,
+          category,
           status,
           borough,
+          assigned_staff:profiles!assigned_staff_id(id, full_name, avatar_url),
           services (
             name,
             category
@@ -239,7 +253,6 @@ export async function getInternalConversations() {
       id,
       conversation_type,
       title,
-      subject,
       organization_id,
       last_message_at,
       conversation_participants (
