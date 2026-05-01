@@ -5,6 +5,7 @@ import { requestsApi } from '../../api/requests';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { MessageBubble } from '../shared/MessageBubble';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ interface Message {
   sender_id: string;
   content: string;
   created_at: string;
-  sender?: { full_name: string };
+  sender?: { full_name: string; avatar_url?: string };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -253,7 +254,7 @@ export function StaffMessagesView() {
   if (loading) return <div className="py-20 text-center text-[#7a9e99]">Loading messages...</div>;
 
   return (
-    <div className="flex flex-1 overflow-hidden min-h-0 bg-white">
+    <div className="flex h-full w-full overflow-hidden bg-white">
 
       {/* ── Sidebar ── */}
       <div className="w-[280px] flex-shrink-0 border-r border-[#e8f0ee] flex flex-col">
@@ -424,22 +425,17 @@ export function StaffMessagesView() {
             <>
               {messages.map(msg => {
                 const isMe = msg.sender_id === userId;
+                const senderName = isMe ? 'You' : (msg.sender?.full_name ?? selectedConv?.member?.full_name ?? 'Unknown');
                 return (
-                  <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    {!isMe && <Avatar name={selectedConv?.member?.full_name ?? '?'} size={28} />}
-                    <div>
-                      <div className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed max-w-[65%] ${
-                        isMe
-                          ? 'bg-[#0d9b8a] text-white rounded-br-[4px]'
-                          : 'bg-white text-[#0f1f2e] border border-[#e8f0ee] rounded-bl-[4px]'
-                      }`}>
-                        {msg.content}
-                      </div>
-                      <div className={`text-[10px] text-[#7a9e99] mt-1.5 ${isMe ? 'text-right' : 'text-left'}`}>
-                        {isMe ? 'You' : (msg.sender?.full_name ?? selectedConv?.member?.full_name)} · {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageBubble
+                    key={msg.id}
+                    content={msg.content}
+                    isOwn={isMe}
+                    senderName={senderName}
+                    timestamp={new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    avatarUrl={msg.sender?.avatar_url}
+                    avatarFallback={initials(senderName)}
+                  />
                 );
               })}
               {messages.length === 0 && (
@@ -464,30 +460,17 @@ export function StaffMessagesView() {
               )}
 
               {channelMessages.map(msg => {
-                const isMe          = msg.sender_id === userId;
-                const isAnnouncement = msg.is_announcement;
+                const isMe = msg.sender_id === userId;
+                const senderName = isMe ? 'You' : msg.sender_name;
                 return (
-                  <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    {!isMe && (
-                      <Avatar name={msg.sender_name} size={28}
-                        color={isAnnouncement ? '#0b1d2a' : undefined}
-                      />
-                    )}
-                    <div>
-                      <div className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed max-w-[70%] ${
-                        isMe
-                          ? 'bg-[#0d9b8a] text-white rounded-br-[4px]'
-                          : isAnnouncement
-                            ? 'bg-[#0b1d2a] text-white rounded-bl-[4px]'
-                            : 'bg-white text-[#0f1f2e] border border-[#e8f0ee] rounded-bl-[4px]'
-                      }`}>
-                        {msg.content}
-                      </div>
-                      <div className={`text-[10px] text-[#7a9e99] mt-1.5 ${isMe ? 'text-right' : 'text-left'}`}>
-                        {isMe ? 'You' : msg.sender_name} · {timeLabel(msg.created_at)}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageBubble
+                    key={msg.id}
+                    content={msg.content}
+                    isOwn={isMe}
+                    senderName={senderName}
+                    timestamp={timeLabel(msg.created_at)}
+                    avatarFallback={initials(senderName)}
+                  />
                 );
               })}
               {channelMessages.length === 0 && (

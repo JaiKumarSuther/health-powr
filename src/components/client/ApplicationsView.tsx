@@ -199,7 +199,7 @@ function DetailLayout({
     <div
       className={
         mode === "sheet"
-          ? "bg-white rounded-t-[20px] w-full max-w-[680px] max-h-[90%] flex flex-col shadow-[0_-8px_40px_rgba(0,0,0,0.14)] animate-slide-up mx-auto"
+          ? "bg-white rounded-t-[20px] w-full max-w-[680px] max-h-[90vh] flex flex-col shadow-[0_-8px_40px_rgba(0,0,0,0.14)] animate-slide-up mx-auto relative z-50"
           : "bg-white rounded-[18px] w-full border border-[#e8f0ee] shadow-[0_8px_40px_rgba(0,0,0,0.08)] overflow-hidden"
       }
     >
@@ -746,13 +746,11 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
       {/* Mobile bottom sheet detail (≤768px) */}
       {sheetApplication && (
         <div className="fixed inset-0 z-[120] flex items-end justify-center md:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/35"
-            aria-label="Close application details"
+          <div 
+            className="fixed inset-0 bg-black/40 transition-opacity" 
             onClick={() => setSheetRequestId(null)}
           />
-          <div className="relative w-full">
+          <div className="relative w-full z-[130]">
             <DetailLayout
               app={sheetApplication}
               mode="sheet"

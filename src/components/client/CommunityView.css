@@ -134,3 +134,13 @@
 .modal-footer { padding: 16px 24px; border-top: 1px solid #f3f4f6; display: flex; justify-content: flex-end; gap: 9px; }
 .btn-cancel { padding: 8px 16px; border: 1px solid #e5e7eb; border-radius: 9px; background: white; font-size: 13px; font-weight: 600; color: #6b7280; cursor: pointer; font-family: inherit; }
 .btn-cancel:hover { color: #111827; }
+
+.ann-comments-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+.ann-comments-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+.ann-comment-item { display: flex; gap: 10px; }
+.ann-comment-input-wrap { display: flex; gap: 8px; align-items: center; }
+.ann-comment-input { flex: 1; height: 38px; padding: 0 14px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-family: inherit; outline: none; }
+.ann-comment-input:focus { border-color: #0d9488; }
+.ann-comment-btn { width: 34px; height: 34px; border-radius: 9px; background: #0d9488; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.ann-comment-btn:hover { background: #0f766e; }
+.ann-comment-btn:disabled { opacity: 0.5; cursor: default; }

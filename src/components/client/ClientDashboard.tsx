@@ -72,7 +72,7 @@ export function ClientDashboard() {
   if (!user) return null;
 
   const currentView: ClientView = viewFromPath(pathname) ?? 'services';
-  const isMapView = currentView === 'map';
+  const isFullScreenView = currentView === 'map' || currentView === 'messages';
 
   const handleViewChange = (view: ClientView) => {
     navigate(`/client/${view}`);
@@ -131,14 +131,14 @@ export function ClientDashboard() {
 
         <main
           className={
-            isMapView
+            isFullScreenView
               ? "flex-1 overflow-hidden min-w-0 bg-slate-50/50"
               : "flex-1 overflow-y-auto hide-scrollbar p-4 md:p-6 lg:p-8 min-w-0 bg-slate-50/50"
           }
         >
           <div
             className={
-              currentView === 'map'
+              isFullScreenView
                 ? 'w-full h-full min-w-0'
                 : 'max-w-[1200px] mx-auto w-full min-w-0'
             }

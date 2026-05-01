@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { forumApi } from "../../api/forum";
+import { announcementsApi } from "../../api/announcements";
 import "./CommunityView.css";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -142,6 +143,44 @@ function AnnouncementCard({
   onToggleLike: (id: string) => void;
   onToggleSave: (id: string) => void;
 }) {
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadComments = async () => {
+    setLoadingComments(true);
+    try {
+      const data = await announcementsApi.getComments(ann.id);
+      setComments(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleToggleComments = () => {
+    const next = !showComments;
+    setShowComments(next);
+    if (next) void loadComments();
+  };
+
+  const handlePostComment = async () => {
+    if (!newComment.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const data = await announcementsApi.addComment(ann.id, newComment.trim());
+      setComments((prev) => [...prev, data]);
+      setNewComment("");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const orgName = ann.org?.name ?? (ann.org_id ? "Organization" : "HealthPowr");
   const orgInitials = initials(orgName);
   const orgColor = avatarColor(orgName);
@@ -200,8 +239,53 @@ function AnnouncementCard({
             <IconBookmark cls="react-btn-icon" />
             <span>{saved ? "Saved" : "Save"}</span>
           </button>
+          <button className={`react-btn${showComments ? " active" : ""}`} onClick={handleToggleComments}>
+            <IconForum cls="react-btn-icon" />
+            <span>{comments.length > 0 ? comments.length : ""} Comments</span>
+          </button>
         </div>
       </div>
+
+      {showComments && (
+        <div className="ann-comments-section">
+          <div className="ann-comments-list">
+            {loadingComments ? (
+              <div className="no-comments">Loading...</div>
+            ) : comments.length === 0 ? (
+              <div className="no-comments">No comments yet.</div>
+            ) : (
+              comments.map((c) => {
+                const name = c.author?.full_name ?? "Community member";
+                return (
+                  <div key={c.id} className="ann-comment-item">
+                    <div className="comment-avatar" style={{ background: avatarColor(name) }}>
+                      {initials(name)}
+                    </div>
+                    <div className="comment-bubble">
+                      <div className="comment-author">{name}</div>
+                      <div className="comment-text">{c.content}</div>
+                      <div className="comment-time">{dateLabel(c.created_at)}</div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="ann-comment-input-wrap">
+            <input
+              type="text"
+              className="ann-comment-input"
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handlePostComment()}
+            />
+            <button className="ann-comment-btn" onClick={handlePostComment} disabled={!newComment.trim() || submitting}>
+              <IconSend cls="send-icon" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -410,7 +494,7 @@ function ForumPanel({
 
 /* ─── Main Page Component ────────────────────────────────────────────────── */
 function CommunityPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("ann");
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -620,10 +704,12 @@ function CommunityPage() {
             <div className="page-title">Community</div>
             <div className="page-sub">Announcements from organizations and peer discussions</div>
           </div>
-          <button className="btn-primary" onClick={openModal}>
-            <IconPlus cls="btn-icon" />
-            <span>{activeTab === "ann" ? "New post" : "New thread"}</span>
-          </button>
+          {(activeTab === "forum" || profile?.role !== "community_member") && (
+            <button className="btn-primary" onClick={openModal}>
+              <IconPlus cls="btn-icon" />
+              <span>{activeTab === "ann" ? "New post" : "New thread"}</span>
+            </button>
+          )}
         </div>
 
         <div className="top-tabs">

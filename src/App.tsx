@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
@@ -46,32 +46,52 @@ function AppRoutes() {
   const { isLoading, isResolvingRole, retryAuth } = useAuth();
   const [loadError, setLoadError] = useState(false);
 
+  // Track whether the app has EVER successfully loaded.
+  // Once true, we never show the error screen again for background
+  // token refreshes or tab-switch events.
+  const hasEverLoaded = useRef(false);
+
+  // Track whether the current loading phase is the INITIAL one
+  // (page just opened) vs. a background refresh (tab switch, token renewal).
+  const isInitialLoad = useRef(true);
+
   useEffect(() => {
-    if (!isResolvingRole && !isLoading) {
+    // Once loading finishes successfully, mark as loaded and flip the flag.
+    if (!isLoading && !isResolvingRole) {
+      hasEverLoaded.current = true;
+      isInitialLoad.current = false;
       setLoadError(false);
       return;
     }
-    
+
+    // If we've already loaded once, this is a background refresh —
+    // do NOT start any timeout, do NOT show an error screen.
+    if (hasEverLoaded.current) return;
+
+    // This is a genuine initial load — start the timeout.
     const timeout = setTimeout(() => {
-      if (isResolvingRole || isLoading) {
+      // Double-check we're still stuck (not just a brief flicker)
+      if ((isLoading || isResolvingRole) && !hasEverLoaded.current) {
         setLoadError(true);
       }
-    }, 15000); // match 15s timeout
-    
+    }, 15000);
+
     return () => clearTimeout(timeout);
-  }, [isResolvingRole, isLoading]);
+  }, [isLoading, isResolvingRole]);
 
   if (!isSupabaseConfigured) {
     return <ConfigurationError />;
   }
 
-  if (loadError) {
+  // Only show the error screen during the INITIAL load failure.
+  // Never show it when the user is already inside the app.
+  if (loadError && !hasEverLoaded.current) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-6 text-center">
           <p className="text-lg font-bold text-gray-900">Unable to load your session</p>
           <p className="text-sm text-gray-600 mt-2">
-            This may be due to a connection issue or a cold start. 
+            This may be due to a connection issue or a cold start.
             Please try retrying before refreshing.
           </p>
           <div className="mt-5 flex gap-3 justify-center">
@@ -98,9 +118,10 @@ function AppRoutes() {
     );
   }
 
-  // Block ALL routing until we have a confirmed role from the DB.
-  // This prevents any portal flash while profile is being fetched.
-  if (isLoading || isResolvingRole) {
+  // Show the full-screen spinner ONLY on the initial load, not on
+  // background token refreshes. Once the user is inside the app,
+  // any background activity happens silently.
+  if ((isLoading || isResolvingRole) && !hasEverLoaded.current) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">

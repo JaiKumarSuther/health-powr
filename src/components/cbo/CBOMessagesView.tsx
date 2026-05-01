@@ -5,6 +5,7 @@ import { requestsApi } from '../../api/requests';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { MessageBubble } from '../shared/MessageBubble';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -428,7 +429,7 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   }
 
   return (
-    <div ref={containerRef} className="flex flex-1 overflow-hidden min-h-0 bg-white rounded-none">
+    <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-white">
 
       {/* ── Sidebar ── */}
       <div 
@@ -663,25 +664,18 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
             <>
               <OversightBanner />
               {messages.map(msg => {
-                const isStaff = msg.sender_id !== selectedConv?.member?.id;
+                const isMe = msg.sender_id === userId;
+                const senderName = msg.sender?.full_name ?? 'Unknown';
                 return (
-                  <div key={msg.id} className={`flex items-end gap-2 ${isStaff ? 'justify-end' : 'justify-start'}`}>
-                    {!isStaff && (
-                      <Avatar name={selectedConv?.member?.full_name ?? '?'} size={28} />
-                    )}
-                    <div>
-                      <div className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed max-w-[65%] ${
-                        isStaff
-                          ? 'bg-[#1d4ed8] text-white rounded-br-[4px]'
-                          : 'bg-white text-[#0f1f2e] border border-[#e8f0ee] rounded-bl-[4px]'
-                      }`}>
-                        {msg.content}
-                      </div>
-                      <div className={`text-[10px] text-[#7a9e99] mt-1.5 ${isStaff ? 'text-right' : 'text-left'}`}>
-                        {msg.sender?.full_name ?? 'Unknown'} · {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageBubble
+                    key={msg.id}
+                    content={msg.content}
+                    isOwn={isMe}
+                    senderName={senderName}
+                    timestamp={new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    avatarUrl={msg.sender?.avatar_url}
+                    avatarFallback={initials(senderName)}
+                  />
                 );
               })}
               {messages.length === 0 && (
@@ -710,23 +704,15 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
                 const isMe = msg.sender_id === userId;
                 const senderName = msg.sender?.full_name ?? 'Unknown';
                 return (
-                  <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    {!isMe && (
-                      <Avatar name={senderName} size={28} />
-                    )}
-                    <div>
-                      <div className={`px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed max-w-[70%] ${
-                        isMe
-                          ? 'bg-[#0d9b8a] text-white rounded-br-[4px]'
-                          : 'bg-white text-[#0f1f2e] border border-[#e8f0ee] rounded-bl-[4px]'
-                      }`}>
-                        {msg.content}
-                      </div>
-                      <div className={`text-[10px] text-[#7a9e99] mt-1.5 ${isMe ? 'text-right' : 'text-left'}`}>
-                        {isMe ? 'You' : senderName} · {timeLabel(msg.created_at)}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageBubble
+                    key={msg.id}
+                    content={msg.content}
+                    isOwn={isMe}
+                    senderName={senderName}
+                    timestamp={timeLabel(msg.created_at)}
+                    avatarUrl={msg.sender?.avatar_url}
+                    avatarFallback={initials(senderName)}
+                  />
                 );
               })}
               {channelMessages.length === 0 && (
