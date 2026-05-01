@@ -7,16 +7,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      staleTime: 5 * 60 * 1000,      // 5 minutes
+      gcTime: 10 * 60 * 1000,         // 10 minutes
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      // Don't refetch just because a component remounted.
-      // We explicitly invalidate queries after mutations.
       refetchOnMount: false,
-      retry: 1,
-      // Treat data as fresh for a while so tab/page changes don't refetch.
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      // Keep cached data around so returning to a tab is instant.
-      gcTime: 30 * 60 * 1000, // 30 minutes
+      refetchOnReconnect: false,
+      retry: 1,                        // only retry once on failure
     },
   },
 });

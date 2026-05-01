@@ -1,23 +1,24 @@
 import { CBOHeader } from './CBOHeader';
 import { CBOSidebar } from './CBOSidebar';
-import { CBOOverview } from './CBOOverview';
-import { ClientsView } from './ClientsView';
-import { ServicesView } from './ServicesView';
-import { CreateServicePage } from './CreateServicePage';
-import { ServiceDetailPage } from './ServiceDetailPage';
-import { MessagesView } from './MessagesView';
-import { InternalMessagingView } from './InternalMessagingView';
-import { ReportsView } from './ReportsView';
-import { SettingsView } from './SettingsView';
-import { HelpSupportView } from './HelpSupportView';
-import { AccountSettingsView } from '../shared/AccountSettingsView';
-import { StaffOverviewView } from '../staff/StaffOverviewView';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { requestsApi } from '../../api/requests';
 import { messagesApi } from '../../api/messages';
 import { supabase } from '../../lib/supabase';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+
+const CBOOverview = lazy(() => import('./CBOOverview').then(m => ({ default: m.CBOOverview })));
+const ClientsView = lazy(() => import('./ClientsView').then(m => ({ default: m.ClientsView })));
+const ServicesView = lazy(() => import('./ServicesView').then(m => ({ default: m.ServicesView })));
+const CreateServicePage = lazy(() => import('./CreateServicePage').then(m => ({ default: m.CreateServicePage })));
+const ServiceDetailPage = lazy(() => import('./ServiceDetailPage').then(m => ({ default: m.ServiceDetailPage })));
+const MessagesView = lazy(() => import('./MessagesView').then(m => ({ default: m.MessagesView })));
+const InternalMessagingView = lazy(() => import('./InternalMessagingView').then(m => ({ default: m.InternalMessagingView })));
+const ReportsView = lazy(() => import('./ReportsView').then(m => ({ default: m.ReportsView })));
+const SettingsView = lazy(() => import('./SettingsView').then(m => ({ default: m.SettingsView })));
+const HelpSupportView = lazy(() => import('./HelpSupportView').then(m => ({ default: m.HelpSupportView })));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
+const StaffOverviewView = lazy(() => import('../staff/StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
 
 async function invokeSetupOrganization(input: { orgName: string; borough: string }, accessToken: string) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -401,7 +402,13 @@ export function CBODashboard() {
               ? 'h-full'
               : 'max-w-[1200px] mx-auto p-4 md:p-6 lg:p-8 overflow-y-auto hide-scrollbar'
           }`}>
-            {renderView()}
+            <Suspense fallback={
+              <div className="flex-1 flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+              </div>
+            }>
+              {renderView()}
+            </Suspense>
           </div>
         </main>
       </div>

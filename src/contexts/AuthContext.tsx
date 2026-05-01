@@ -241,7 +241,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supaUser = session.user;
       const mapped = mapSupabaseUserToAppUser(supaUser);
       
-      const profileData = await fetchProfileWithRetry(supaUser.id);
+      // Start both fetches in parallel
+      const profilePromise = fetchProfileWithRetry(supaUser.id);
+      const membershipPromise = (mapped.role === 'organization')
+        ? supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+
+      const [profileData, { data: membership }] = await Promise.all([
+        profilePromise,
+        membershipPromise
+      ]);
+
       if (!isMounted()) return;
 
       if (!profileData) {
@@ -263,22 +273,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const resolvedRole = (profileData.role as UserRole) ?? mapped.role;
       if (resolvedRole === 'organization') {
-        supabase
-          .from('organization_members')
-          .select('role')
-          .eq('profile_id', supaUser.id)
-          .maybeSingle()
-          .then(({ data: membership }) => {
-            if (!membership || membership.role === 'owner') {
-              void maybeBootstrapOrganization({
-                userId: supaUser.id,
-                email: mapped.email,
-                role: resolvedRole,
-                organizationName: mapped.organization,
-                borough: profileData?.borough ?? undefined,
-              });
-            }
+        if (!membership || membership.role === 'owner') {
+          void maybeBootstrapOrganization({
+            userId: supaUser.id,
+            email: mapped.email,
+            role: resolvedRole,
+            organizationName: mapped.organization,
+            borough: profileData?.borough ?? undefined,
           });
+        }
       }
     } catch (e) {
       console.error("[AuthContext:initializeAuth] Failed.", e);

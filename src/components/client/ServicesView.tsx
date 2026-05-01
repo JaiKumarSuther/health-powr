@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   Search,
   Filter,
@@ -95,14 +95,14 @@ export function ServicesView() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  function handleApply(serviceId: string) {
+  const handleApply = useCallback((serviceId: string) => {
     if (typeof window !== "undefined" && window.innerWidth <= 768) {
       setFormServiceId(serviceId);
       setIsFormSheetOpen(true);
     } else {
       navigate(`/client/apply/${serviceId}`);
     }
-  }
+  }, [navigate]);
 
   // DEV NOTE: If testing geolocation locally and the popup doesn't appear,
   // the permission may be cached as 'denied'. Reset it: Chrome → address bar
@@ -293,12 +293,12 @@ export function ServicesView() {
 
   // Replaced manual favorites logic with useFavorites and useToggleFavorite hooks inside ServiceCard
 
-  const handleCopyPhone = (phone: string) => {
+  const handleCopyPhone = useCallback((phone: string) => {
     navigator.clipboard.writeText(phone).then(() => {
       setCopyToast(true);
       setTimeout(() => setCopyToast(false), 2500);
     });
-  };
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto">

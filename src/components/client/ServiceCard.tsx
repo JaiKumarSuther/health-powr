@@ -75,6 +75,9 @@ export function ServiceIconBanner({
           src={imageUrl || logoUrl || ""}
           alt={orgName ?? ""}
           className="w-full h-[140px] object-cover"
+          loading="lazy"
+          width="400"
+          height="140"
           onError={(e) => {
             e.currentTarget.style.display = "none";
             (e.currentTarget.nextElementSibling as HTMLElement | null)?.removeAttribute("style");
@@ -118,7 +121,7 @@ interface ServiceCardProps {
   onCopyPhone: (phone: string) => void;
 }
 
-export function ServiceCard({
+export const ServiceCard = React.memo(function ServiceCard({
   service,
   distance,
   onApply,
@@ -214,4 +217,4 @@ export function ServiceCard({
       </div>
     </div>
   );
-}
+});

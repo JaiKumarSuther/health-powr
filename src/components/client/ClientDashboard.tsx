@@ -1,17 +1,18 @@
 import { ClientHeader } from './ClientHeader';
 import { ClientSidebar } from './ClientSidebar';
-import { ServicesView } from './ServicesView';
-import { ApplicationsView } from './ApplicationsView';
-import { MessagesView } from './MessagesView';
-import { CommunityView } from './CommunityView';
-import { ApplicationForm } from './ApplicationForm';
-import { ApplicationFormPage } from '../../pages/client/ApplicationFormPage';
-import { AccountSettingsView } from '../shared/AccountSettingsView';
-import { EmergencyResourcesView } from './EmergencyResourcesView';
-import { ContactSupportView } from './ContactSupportView';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect, useState } from 'react';
+
+const ServicesView = lazy(() => import('./ServicesView').then(m => ({ default: m.ServicesView })));
+const ApplicationsView = lazy(() => import('./ApplicationsView').then(m => ({ default: m.ApplicationsView })));
+const MessagesView = lazy(() => import('./MessagesView').then(m => ({ default: m.MessagesView })));
+const CommunityView = lazy(() => import('./CommunityView').then(m => ({ default: m.CommunityView })));
+const ApplicationForm = lazy(() => import('./ApplicationForm').then(m => ({ default: m.ApplicationForm })));
+const ApplicationFormPage = lazy(() => import('../../pages/client/ApplicationFormPage').then(m => ({ default: m.ApplicationFormPage })));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
+const EmergencyResourcesView = lazy(() => import('./EmergencyResourcesView').then(m => ({ default: m.EmergencyResourcesView })));
+const ContactSupportView = lazy(() => import('./ContactSupportView').then(m => ({ default: m.ContactSupportView })));
 
 const MapView = lazy(() =>
   import('./MapView').then((m) => ({ default: m.MapView })),
@@ -82,17 +83,7 @@ export function ClientDashboard() {
   const renderView = () => {
     switch (currentView) {
       case 'services':         return <ServicesView />;
-      case 'map':              return (
-        <Suspense
-          fallback={
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              Loading map...
-            </div>
-          }
-        >
-          <MapView />
-        </Suspense>
-      );
+      case 'map':              return <MapView />;
       case 'applications':     return <ApplicationsView requestId={applicationIdFromPath} />;
       case 'apply':            return <ApplicationFormPage serviceId={applyServiceIdFromPath} />;
       case 'messages':         return <MessagesView />;
@@ -143,7 +134,13 @@ export function ClientDashboard() {
                 : 'max-w-[1200px] mx-auto w-full min-w-0'
             }
           >
-            {renderView()}
+            <Suspense fallback={
+              <div className="flex-1 flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+              </div>
+            }>
+              {renderView()}
+            </Suspense>
           </div>
         </main>
       </div>

@@ -86,7 +86,7 @@ export function RequireAuth({
 
   const prevRoleRef = useRef<string | null>(null);
   const navigate = useNavigate();
-  const effectiveRole: UserRole = (profile?.role ?? user.role) as UserRole;
+  const effectiveRole: UserRole = (profile?.role ?? user?.role) as UserRole;
   const roleList = allowedRoles ?? (role ? [role] : undefined);
 
   useEffect(() => {

@@ -1,15 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { requestsApi } from '../../api/requests';
 import { messagesApi } from '../../api/messages';
 import { CBOHeader } from '../cbo/CBOHeader';
 import { CBOSidebar } from '../cbo/CBOSidebar';
-import { ClientsView } from '../cbo/ClientsView';
-import { HelpSupportView } from '../cbo/HelpSupportView';
-import { AccountSettingsView } from '../shared/AccountSettingsView';
-import { StaffMessagesPage } from '../../pages/staff/StaffMessagesPage';
-import { StaffOverviewView } from './StaffOverviewView';
+
+const ClientsView = lazy(() => import('../cbo/ClientsView').then(m => ({ default: m.ClientsView })));
+const HelpSupportView = lazy(() => import('../cbo/HelpSupportView').then(m => ({ default: m.HelpSupportView })));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
+const StaffMessagesPage = lazy(() => import('../../pages/staff/StaffMessagesPage').then(m => ({ default: m.StaffMessagesPage })));
+const StaffOverviewView = lazy(() => import('./StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
 
 type StaffView = 'overview' | 'assigned' | 'messages' | 'team' | 'help' | 'account';
 const ALL_VIEWS: StaffView[] = ['overview', 'assigned', 'messages', 'team', 'help', 'account'];
@@ -240,21 +241,23 @@ export function StaffDashboard() {
               ? 'h-full'
               : 'max-w-[1200px] mx-auto p-4 md:p-6 lg:p-8 overflow-y-auto hide-scrollbar'
           }`}>
-            <Routes>
-              <Route path="overview" element={<StaffOverviewView />} />
-              <Route path="assigned" element={<ClientsView staffMode />} />
-              <Route path="assigned/:requestId" element={<ClientsView staffMode />} />
-              {/* Staff request detail (used by Messages "View request") */}
-              <Route path="requests/:requestId" element={<ClientsView staffMode />} />
-              <Route path="requests" element={<Navigate to="/staff/assigned" replace />} />
+            <Suspense fallback={<StaffShellSkeleton />}>
+              <Routes>
+                <Route path="overview" element={<StaffOverviewView />} />
+                <Route path="assigned" element={<ClientsView staffMode />} />
+                <Route path="assigned/:requestId" element={<ClientsView staffMode />} />
+                {/* Staff request detail (used by Messages "View request") */}
+                <Route path="requests/:requestId" element={<ClientsView staffMode />} />
+                <Route path="requests" element={<Navigate to="/staff/assigned" replace />} />
 
-              <Route path="messages" element={<StaffMessagesPage />} />
-              <Route path="team" element={<Navigate to="/staff/messages" replace />} />
-              <Route path="help" element={<HelpSupportView />} />
-              <Route path="account" element={<AccountSettingsView hideBorough />} />
+                <Route path="messages" element={<StaffMessagesPage />} />
+                <Route path="team" element={<Navigate to="/staff/messages" replace />} />
+                <Route path="help" element={<HelpSupportView />} />
+                <Route path="account" element={<AccountSettingsView hideBorough />} />
 
-              <Route path="*" element={<Navigate to={`/staff/${effectiveView}`} replace />} />
-            </Routes>
+                <Route path="*" element={<Navigate to={`/staff/${effectiveView}`} replace />} />
+              </Routes>
+            </Suspense>
           </div>
         </main>
       </div>
