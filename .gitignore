@@ -27,3 +27,5 @@ dist-ssr
 # Replit config can contain environment variables.
 # Keep it untracked unless intentionally used without secrets.
 .replit
+
+coverage/
