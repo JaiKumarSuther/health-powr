@@ -21,10 +21,6 @@ function initials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-const AVATAR_COLORS = ['#0d9b8a', '#7c3aed', '#d97706', '#be185d', '#0891b2', '#15803d'];
-function avatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -256,7 +252,7 @@ export function MessagesView() {
                 <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {selectedConv.request?.assigned_staff?.avatar_url || selectedConv.organization?.logo_url ? (
                     <img
-                      src={selectedConv.request?.assigned_staff?.avatar_url || selectedConv.organization?.logo_url}
+                      src={selectedConv.request?.assigned_staff?.avatar_url || selectedConv.organization?.logo_url || undefined}
                       className="w-full h-full object-cover"
                       alt="Avatar"
                     />
@@ -288,7 +284,7 @@ export function MessagesView() {
                     senderName={senderName}
                     timestamp={new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     avatarFallback={initials(senderName)}
-                    avatarUrl={isMe ? undefined : (msg.sender?.avatar_url || selectedConv.organization?.logo_url)}
+                    avatarUrl={isMe ? undefined : (msg.sender?.avatar_url || selectedConv.organization?.logo_url || undefined)}
                   />
                 );
               })}

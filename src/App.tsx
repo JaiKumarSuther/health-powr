@@ -43,7 +43,7 @@ const Spinner = () => (
 );
 
 function AppRoutes() {
-  const { user, isLoading, isResolvingRole } = useAuth();
+  const { isLoading, isResolvingRole } = useAuth();
 
   if (!isSupabaseConfigured) return <ConfigurationError />;
 

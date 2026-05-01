@@ -373,7 +373,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isMounted = false;
       authListener.subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initializeAuth]);
 
   const signIn: AuthContextType["signIn"] = async ({ email, password }) => {

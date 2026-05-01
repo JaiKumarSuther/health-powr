@@ -20,6 +20,7 @@ export interface Profile {
   role: UserRole
   borough: string | null
   created_at: string
+  avatar_url?: string | null
 }
 
 export interface Organization {

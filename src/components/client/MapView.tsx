@@ -24,7 +24,6 @@ import { useNavigate } from "react-router-dom";
 import { usePublicServices } from "../../hooks/useServices";
 import { ApplicationFormSheet } from "./ApplicationFormSheet";
 import { ServiceCard, Service } from "./ServiceCard";
-import { supabase } from "../../lib/supabase";
 
 const DEFAULT_CENTER: [number, number] = [40.7128, -74.006]; // NYC
 
@@ -57,17 +56,6 @@ const MAP_CATEGORIES: Array<{
 
 type SheetSort = "open_first" | "nearest" | "az";
 
-const CATEGORY_ICON: Record<MapCategory, React.ElementType> = {
-  all: LayoutGrid,
-  food: ShoppingBag,
-  housing: Home,
-  healthcare: Heart,
-  job_training: Briefcase,
-  legal: Scale,
-  education: BookOpen,
-  mental_health: Brain,
-  childcare: Baby,
-};
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -314,14 +302,6 @@ export function MapView() {
     setSheetServices(mapped);
   }, [allServices, activeCategory, isSheetOpen]);
 
-  function handleServiceSelect(svc: any) {
-    const map = mapRef.current;
-    const lat = svc.organization?.latitude ?? svc.latitude;
-    const lng = svc.organization?.longitude ?? svc.longitude;
-    if (map && lat != null && lng != null) {
-      map.setView([lat, lng], 15, { animate: true });
-    }
-  }
 
   function handleMyLocation() {
     if (!navigator.geolocation) return;

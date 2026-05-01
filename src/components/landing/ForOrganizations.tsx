@@ -1,5 +1,4 @@
-import { ChevronRight, Inbox, TrendingUp, GitMerge } from "lucide-react";
-import { BrandMark } from "./BrandMark";
+import { Inbox, TrendingUp, GitMerge } from "lucide-react";
 import { classNames } from "./utils";
 
 function OrgFeature({

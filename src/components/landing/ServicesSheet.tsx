@@ -15,7 +15,6 @@ import {
   Briefcase,
   Scale,
   GraduationCap,
-  MessageCircle,
   AlertCircle,
 } from "lucide-react";
 import { PublicService } from "../../api/services";

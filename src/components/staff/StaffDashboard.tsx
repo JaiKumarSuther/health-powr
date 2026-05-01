@@ -237,7 +237,7 @@ export function StaffDashboard() {
         />
         <main className="flex-1 flex flex-col overflow-hidden">
           <div className={`flex-1 flex flex-col w-full min-w-0 ${
-            effectiveView === 'messages' || effectiveView === 'team'
+            effectiveView === 'messages'
               ? 'h-full'
               : 'max-w-[1200px] mx-auto p-4 md:p-6 lg:p-8 overflow-y-auto hide-scrollbar'
           }`}>

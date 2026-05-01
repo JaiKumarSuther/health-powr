@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../types/user';
+import { supabase } from '../lib/supabase';
 
 type ProofVerifyResponse =
   | { valid: true; expiresAt?: number }
