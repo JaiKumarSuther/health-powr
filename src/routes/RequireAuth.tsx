@@ -83,7 +83,7 @@ export function RequireAuth({
     return () => {
       alive = false;
     };
-  }, [isAdminRoute, isLoading, isResolvingRole, location.pathname]);
+  }, [isAdminRoute, isLoading, isResolvingRole]);
 
   const prevRoleRef = useRef<string | null>(null);
   const navigate = useNavigate();

@@ -192,27 +192,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fetchProfileWithRetry = async (userId: string, maxAttempts = 3): Promise<Profile | null> => {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      console.log(`[Auth] Profile fetch attempt ${attempt}/${maxAttempts}...`);
-      const result = await withTimeout(
-        (signal) => authApi.fetchProfile(userId, { signal }),
-        15000 // 15 seconds for cold starts
-      );
-      if (result) return result;
-      if (attempt < maxAttempts) {
-        await sleep(2000);
-      }
-    }
-    return null;
+  const fetchProfileWithRetry = async (userId: string): Promise<Profile | null> => {
+    // Attempt 1 — short timeout; most users have a profile row ready immediately.
+    console.log('[Auth] Profile fetch attempt 1/2...');
+    const first = await withTimeout(
+      (signal) => authApi.fetchProfile(userId, { signal }),
+      3000,
+    );
+    if (first) return first;
+
+    // Brief pause — DB trigger may need a moment for brand-new users.
+    await sleep(1500);
+
+    // Attempt 2 — last chance before JWT-metadata fallback takes over.
+    console.log('[Auth] Profile fetch attempt 2/2...');
+    return await withTimeout(
+      (signal) => authApi.fetchProfile(userId, { signal }),
+      4000,
+    );
   };
 
   const initializeAuth = useCallback(async (isMounted: () => boolean) => {
     try {
+      console.log("[AuthContext] initializeAuth started");
       clearAuthError();
       setIsResolvingRole(true);
 
       const { data: { session: sess } } = await supabase.auth.getSession();
+      console.log("[AuthContext] Session checked:", !!sess);
       if (!isMounted()) return;
 
       if (!sess) {
@@ -243,23 +250,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Start both fetches in parallel
       const profilePromise = fetchProfileWithRetry(supaUser.id);
+      
       const membershipPromise = (mapped.role === 'organization')
-        ? supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).maybeSingle()
+        ? withTimeout(
+            (signal) => supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).abortSignal(signal).maybeSingle(),
+            5000
+          )
         : Promise.resolve({ data: null, error: null });
 
-      const [profileData, { data: membership }] = await Promise.all([
+      const [profileData, membershipResult] = await Promise.all([
         profilePromise,
         membershipPromise
       ]);
+      console.log("[AuthContext] Fetched profile/membership:", { hasProfile: !!profileData, hasMembership: !!membershipResult });
+
+      const membership = (membershipResult as any)?.data ?? null;
 
       if (!isMounted()) return;
 
       if (!profileData) {
-        // Session exists but profile failed after retries
-        console.error("[AuthContext] Profile fetch failed after all retries.");
-        setAuthError("Unable to load your profile. Please check your connection and refresh.");
+        // Profile row not found after fast retries — fall back to JWT metadata
+        // so navigation can proceed immediately in AuthPage.
+        console.warn("[AuthContext] Profile not found — using metadata fallback.");
+        applyResolvedIdentity(mapped, null);
+        
+        // Ensure UI can navigate now
         setIsResolvingRole(false);
         setIsLoading(false);
+
+        // Background retry: attempt once more after 5 seconds
+        setTimeout(async () => {
+          if (!isMounted()) return;
+          const retried = await authApi.fetchProfile(supaUser.id);
+          if (retried && isMounted()) {
+            applyResolvedIdentity(mapped, retried);
+          }
+        }, 5000);
         return;
       }
 
@@ -329,18 +355,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, nextSession) => {
         const nextUserId = nextSession?.user?.id ?? null;
 
-        // Skip if same user — tab focus token refresh should not re-trigger profile fetch
-        if (nextUserId && nextUserId === currentUserIdRef.current) {
-          // Still update session if it changed (e.g. token refresh)
-          if (nextSession && nextSession !== session) {
-            setSession(nextSession);
-          }
-          return;
-        }
-
-        currentUserIdRef.current = nextUserId;
-
         if (event === "SIGNED_OUT") {
+          currentUserIdRef.current = null;
           if (!isMounted) return;
           setSession(null);
           setUser(null);
@@ -352,19 +368,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Only run full init for actual sign in/out or initial session events
-        if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        // For SIGNED_IN: always run initializeAuth so profile is loaded and
+        // navigation fires. For token refreshes (TOKEN_REFRESHED) on the same
+        // user, just update the session quietly.
+        if (event === "SIGNED_IN") {
+          currentUserIdRef.current = nextUserId;
           setIsResolvingRole(true);
           try {
+            // Await the session to be fully ready
             await initializeAuth(() => isMounted);
           } catch (error) {
-            console.error("[AuthContext] Error handling auth state change:", error);
+            console.error("[AuthContext] Error handling SIGNED_IN:", error);
           } finally {
             if (isMounted) {
               setIsResolvingRole(false);
               setIsLoading(false);
             }
           }
+          return;
+        }
+
+        if (event === "INITIAL_SESSION") {
+          // Skip if same user already initialized (e.g. hot reload)
+          if (nextUserId && nextUserId === currentUserIdRef.current) {
+            if (nextSession) setSession(nextSession);
+            return;
+          }
+          currentUserIdRef.current = nextUserId;
+          setIsResolvingRole(true);
+          try {
+            await initializeAuth(() => isMounted);
+          } catch (error) {
+            console.error("[AuthContext] Error handling INITIAL_SESSION:", error);
+          } finally {
+            if (isMounted) {
+              setIsResolvingRole(false);
+              setIsLoading(false);
+            }
+          }
+          return;
+        }
+
+        // TOKEN_REFRESHED or other events — just update session quietly
+        if (nextUserId && nextUserId === currentUserIdRef.current && nextSession) {
+          setSession(nextSession);
         }
       },
     );

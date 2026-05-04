@@ -92,7 +92,7 @@ function parseAllowedOrigins(raw: string): string[] {
 
 function corsHeaders(origin: string) {
   return {
-    "access-control-allow-origin": origin,
+    "access-control-allow-origin": origin || "*",
     "access-control-allow-headers":
       "authorization, x-client-info, apikey, content-type",
     "access-control-allow-methods": "POST, OPTIONS",
@@ -109,30 +109,32 @@ function json(status: number, body: unknown, origin: string) {
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin") || "";
 
-  try {
-    const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "").trim();
-    if (!allowedRaw) {
-      console.error("[verify-admin-passkey] Missing ALLOWED_ORIGIN secret.");
-      return new Response(JSON.stringify({ error: "Server misconfigured (Missing ALLOWED_ORIGIN)." }), {
-        status: 500,
-        headers: { "content-type": "application/json", ...corsHeaders(origin || "*") },
-      });
-    }
+  // 1. Handle OPTIONS immediately for CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders(origin),
+    });
+  }
 
+  try {
+    // Use the ALLOWED_ORIGIN secret if set, otherwise fallback to common dev origins.
+    const allowedRaw = (Deno.env.get("ALLOWED_ORIGIN") ?? "http://localhost:5000,http://localhost:3000,https://health-powr-eta.vercel.app").trim();
+    
     const allowed = parseAllowedOrigins(allowedRaw);
     const isAllowed = allowed.includes("*") || (origin && allowed.includes(origin));
 
     if (!isAllowed) {
       console.error(`[verify-admin-passkey] Forbidden origin: ${origin}`);
-      return new Response(JSON.stringify({ error: "Forbidden origin." }), {
+      return new Response(JSON.stringify({ 
+        error: "Forbidden origin", 
+        details: `Origin ${origin} is not in the allowed list.` 
+      }), {
         status: 403,
         headers: { "content-type": "application/json", ...corsHeaders(origin || "*") },
       });
     }
 
-    if (req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    }
     if (req.method !== "POST") {
       return json(405, { error: "Method not allowed" }, origin);
     }

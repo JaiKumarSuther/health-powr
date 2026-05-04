@@ -16,7 +16,7 @@ export function AuthPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { signIn, signUp, user, profile } = useAuth();
+  const { signIn, signUp, user, profile, isResolvingRole } = useAuth();
 
   const mode = (searchParams.get("mode") as Mode) ?? "signin";
   const [role, setRole] = useState<"community_member" | "organization">("community_member");
@@ -37,27 +37,29 @@ export function AuthPage() {
   const [confirmPw, setConfirmPw] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
 
-  // ── Redirect once profile is loaded ──────────────────────────────
+  // ── Redirect once user is authenticated ─────────────────────────
   useEffect(() => {
-    console.log("[AuthPage] useEffect check:", {
-      hasUser: !!user,
-      hasProfile: !!profile,
-      userEmail: user?.email,
-      profileRole: profile?.role
-    });
+    // Wait until auth initialization is complete
+    if (isResolvingRole) return;
 
-    if (user && profile) {
-      const dest =
-        profile.role === "admin" ? "/admin" :
-          profile.role === "organization" ? "/cbo" : "/client";
+    // Auth resolved — clear any lingering local loading state
+    setLoading(false);
 
-      console.log("[AuthPage] Auth resolved, navigating to:", dest);
-      // Use setTimeout to ensure state updates have propagated
-      setTimeout(() => {
-        navigate(dest, { replace: true });
-      }, 100);
-    }
-  }, [user, profile, navigate]);
+    if (!user) return;
+
+    // Prefer DB profile role; fall back to JWT metadata role (for new users
+    // whose profile row hasn't been created yet by the DB trigger).
+    const resolvedRole = profile?.role ?? user.role;
+
+    const dest =
+      resolvedRole === "admin" ? "/admin" :
+        resolvedRole === "organization" ? "/cbo" : "/client";
+
+    console.log("[AuthPage] Auth resolved, navigating to:", dest, { profileRole: profile?.role, userRole: user.role });
+    setTimeout(() => {
+      navigate(dest, { replace: true });
+    }, 100);
+  }, [user, profile, isResolvingRole, navigate]);
 
   // ── Resend countdown ─────────────────────────────────────────────
   useEffect(() => {

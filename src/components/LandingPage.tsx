@@ -37,9 +37,9 @@ export function LandingPage() {
 
   const CALENDLY_URL = "https://calendly.com/mardoche-healthpowr/30min?month=2026-04";
 
-  const openAuth = (role: LandingRole, mode: "signin" | "signup") => {
-    // Landing supports community members + organizations.
-    navigate(`/auth?mode=${mode}&role=${role}`);
+  const openAuth = (_role: LandingRole, mode: "signin" | "signup") => {
+    // Role is not consumed by AuthPage for routing — omit it to keep URLs clean.
+    navigate(`/auth?mode=${mode}`);
   };
 
   const handleSearch = (input: { query: string; category?: string }) => {

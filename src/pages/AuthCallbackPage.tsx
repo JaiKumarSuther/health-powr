@@ -39,6 +39,28 @@ export default function AuthCallbackPage() {
       try {
         setError(null);
 
+        // Check for error params in the URL hash (implicit-flow redirects).
+        // e.g. #error=access_denied&error_code=otp_expired&error_description=...
+        const hash = window.location.hash.slice(1); // strip leading '#'
+        if (hash) {
+          const hashParams = new URLSearchParams(hash);
+          const hashError = hashParams.get("error");
+          const hashErrorCode = hashParams.get("error_code");
+          const hashErrorDesc = hashParams.get("error_description");
+          if (hashError) {
+            const isExpired =
+              hashErrorCode === "otp_expired" ||
+              hashErrorDesc?.toLowerCase().includes("expired") ||
+              hashErrorDesc?.toLowerCase().includes("invalid");
+            throw new Error(
+              isExpired
+                ? "Your email confirmation link has expired or is no longer valid. Please go back and sign up again to receive a new link."
+                : hashErrorDesc?.replace(/\+/g, " ") ||
+                    "Verification failed. Please try again.",
+            );
+          }
+        }
+
         // If the session is already present, we're done.
         const { data: sessionData } = await supabase.auth.getSession();
         if (sessionData.session) {
@@ -120,13 +142,22 @@ export default function AuthCallbackPage() {
               Verification failed
             </p>
             <p className="text-sm text-red-700/90 mt-1">{error}</p>
-            <button
-              type="button"
-              onClick={() => navigate("/", { replace: true })}
-              className="mt-3 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors"
-            >
-              Back to Home
-            </button>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => navigate("/auth?mode=signup", { replace: true })}
+                className="inline-flex items-center justify-center h-10 px-4 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/", { replace: true })}
+                className="inline-flex items-center justify-center h-10 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Back to Home
+              </button>
+            </div>
           </div>
         )}
       </div>
