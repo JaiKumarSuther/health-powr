@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { RequireAuth } from "./routes/RequireAuth";
+import { PublicOnly } from "./routes/PublicOnly";
 import { isSupabaseConfigured } from "./lib/supabase";
 import { ConfigurationError } from "./components/shared/ConfigurationError";
 
@@ -59,9 +60,9 @@ function AppRoutes() {
     <Suspense fallback={<Spinner />}>
       <Routes>
         {/* Public routes - ALWAYS accessible */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/auth/reset-password" element={<AuthPage />} />
+        <Route path="/" element={<PublicOnly><LandingPage /></PublicOnly>} />
+        <Route path="/auth" element={<PublicOnly><AuthPage /></PublicOnly>} />
+        <Route path="/auth/reset-password" element={<PublicOnly><AuthPage /></PublicOnly>} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/admin-passkey" element={<AdminPasskeyPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
