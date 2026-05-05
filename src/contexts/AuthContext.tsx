@@ -261,17 +261,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (secondsUntilExpiry < 300) {
         console.log("[AuthContext] Session expiring soon, refreshing...");
-        const refreshResult = await withTimeout(
-          () => supabase.auth.refreshSession(),
-          8000
-        );
-        if (refreshResult?.data?.session) {
-          session = refreshResult.data.session;
+        try {
+          const refreshResult = await withTimeout(
+            () => supabase.auth.refreshSession(),
+            5000
+          );
+          if (refreshResult?.data?.session) {
+            session = refreshResult.data.session;
+          }
+        } catch (refreshError) {
+          console.warn("[AuthContext] refreshSession timed out; continuing with existing session.", refreshError);
         }
       }
 
       if (!isMounted()) return;
       setSession(session);
+      currentUserIdRef.current = session.user.id;
 
       const supaUser = session.user;
       const mapped = mapSupabaseUserToAppUser(supaUser);
@@ -405,7 +410,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // For SIGNED_IN: only trigger full initialization if the user has changed.
         // Supabase fires SIGNED_IN on window focus even if the session is unchanged.
         if (event === "SIGNED_IN") {
-          if (nextUserId === currentUserIdRef.current && user) {
+          if (nextUserId && nextUserId === currentUserIdRef.current) {
             console.log("[AuthContext] SIGNED_IN fired but user unchanged, skipping re-init");
             if (nextSession) setSession(nextSession);
             return;

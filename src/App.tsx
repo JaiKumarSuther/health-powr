@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
@@ -43,17 +43,15 @@ const Spinner = () => (
 );
 
 function AppRoutes() {
-  const { isLoading, isResolvingRole, refreshProfile } = useAuth();
+  const { isLoading, isResolvingRole } = useAuth();
   const [isTimedOut, setIsTimedOut] = useState(false);
 
-  // Safety timeout: if Auth takes > 10s, allow the app to attempt rendering.
-  // This prevents infinite loaders if Supabase session refresh hangs.
   useEffect(() => {
     if (isLoading || isResolvingRole) {
       const timer = setTimeout(() => {
-        console.warn("[AppRoutes] Auth resolution taking too long, triggering safety fallback.");
+        console.warn("[AppRoutes] Auth resolution taking too long, forcing spinner escape hatch.");
         setIsTimedOut(true);
-      }, 10000);
+      }, 8000);
       return () => clearTimeout(timer);
     } else {
       setIsTimedOut(false);

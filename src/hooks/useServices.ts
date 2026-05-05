@@ -125,11 +125,11 @@ export function useOrganizationServices(orgId: string | undefined) {
           "id, organization_id, name, category, description, is_available, hours, eligibility, image_url, latitude, longitude",
         )
         .eq("organization_id", orgId!)
+        .limit(200)
         .order("name");
       if (error) throw error;
       return (data ?? []) as ServiceRow[];
     },
-    staleTime: 0,
   });
 }
 
@@ -148,7 +148,6 @@ export function useServiceById(serviceId: string | undefined) {
       if (error) throw error;
       return (data ?? null) as ServiceRow | null;
     },
-    staleTime: 0,
   });
 }
 
@@ -181,9 +180,6 @@ export function useCreateService() {
       await queryClient.invalidateQueries({
         queryKey: servicesQueryKeys.byOrg(created.organization_id),
       });
-      await queryClient.refetchQueries({
-        queryKey: servicesQueryKeys.byOrg(created.organization_id),
-      });
       // Also refresh any public lists that might include this new service.
       await queryClient.invalidateQueries({ queryKey: servicesQueryKeys.all });
     },
@@ -211,9 +207,6 @@ export function useUpdateServiceAvailability() {
     },
     onSuccess: async (updated) => {
       await queryClient.invalidateQueries({
-        queryKey: servicesQueryKeys.byOrg(updated.organization_id),
-      });
-      await queryClient.refetchQueries({
         queryKey: servicesQueryKeys.byOrg(updated.organization_id),
       });
       await queryClient.invalidateQueries({ queryKey: servicesQueryKeys.all });
@@ -274,6 +267,7 @@ export function usePublicServices(filters: {
           "id, name, category, description, is_available, hours, eligibility, image_url, latitude, longitude, organizations:organization_id(id, name, borough, latitude, longitude, phone, email, status, logo_url)",
         )
         .eq("organizations.status", "approved")
+        .limit(200)
         .order("name");
 
       if (filters.category && filters.category !== "all") {

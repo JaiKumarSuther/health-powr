@@ -20,6 +20,7 @@ export const orgsApi = {
     if (filters?.borough) query = query.eq("borough", filters.borough);
     if (filters?.category)
       query = query.contains("category", [filters.category]);
+    query = query.limit(200);
 
     const { data, error } = await query;
     if (error) throw error;
