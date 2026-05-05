@@ -231,7 +231,6 @@ export function StaffDashboard() {
         onClose={() => setSidebarOpen(false)}
         membershipRole={membershipRole}
         unreadMessagesCount={unreadMessagesCount}
-        hideTeamForStaff
       />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <CBOHeader

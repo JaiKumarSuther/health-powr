@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { RequireAuth } from "./routes/RequireAuth";
@@ -40,23 +40,20 @@ const Spinner = () => (
 
 function AppRoutes() {
   const { isLoading, isResolvingRole } = useAuth();
-  const [isTimedOut, setIsTimedOut] = useState(false);
-
-  useEffect(() => {
-    if (isLoading || isResolvingRole) {
-      const timer = setTimeout(() => {
-        console.warn("[AppRoutes] Auth resolution taking too long, forcing spinner escape hatch.");
-        setIsTimedOut(true);
-      }, 8000);
-      return () => clearTimeout(timer);
-    } else {
-      setIsTimedOut(false);
-    }
-  }, [isLoading, isResolvingRole]);
+  const location = useLocation();
 
   if (!isSupabaseConfigured) return <ConfigurationError />;
 
-  const isAuthLoading = (isLoading || isResolvingRole) && !isTimedOut;
+  const isAuthLoading = isLoading || isResolvingRole;
+  const isProtectedPath =
+    location.pathname.startsWith("/client") ||
+    location.pathname.startsWith("/cbo") ||
+    location.pathname.startsWith("/staff") ||
+    location.pathname.startsWith("/admin");
+
+  if (isProtectedPath && isAuthLoading) {
+    return <Spinner />;
+  }
 
   return (
     <Suspense fallback={<Spinner />}>

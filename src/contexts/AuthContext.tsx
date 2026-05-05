@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const orgSetupAttempted = useRef(false);
   const didBootstrapOrgForUserRef = useRef<string | null>(null);
   const bootstrapInFlightRef = useRef(false);
+  const ORG_SETUP_GUARD_PREFIX = "hp:org-setup-attempted:";
+  const ORG_SETUP_GUARD_TTL_MS = 12 * 60 * 60 * 1000;
 
   const clearAuthError = () => setAuthError(null);
 
@@ -81,6 +83,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+  const hasRecentOrgSetupAttempt = (userId: string) => {
+    if (typeof window === "undefined") return false;
+    const key = `${ORG_SETUP_GUARD_PREFIX}${userId}`;
+    const raw = window.localStorage.getItem(key);
+    const ts = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(ts)) return false;
+    return Date.now() - ts < ORG_SETUP_GUARD_TTL_MS;
+  };
+
+  const markOrgSetupAttempt = (userId: string) => {
+    if (typeof window === "undefined") return;
+    const key = `${ORG_SETUP_GUARD_PREFIX}${userId}`;
+    window.localStorage.setItem(key, String(Date.now()));
+  };
+
   const maybeBootstrapOrganization = async (input: {
     userId: string;
     email: string;
@@ -92,6 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Skip if already successfully bootstrapped this session.
     if (didBootstrapOrgForUserRef.current === input.userId) return;
+    // Keep failed setup calls from repeating on every login refresh.
+    if (hasRecentOrgSetupAttempt(input.userId)) return;
     // Guard setup-organization so it only runs ONCE per session/mount
     if (orgSetupAttempted.current) return;
     // Avoid repeated calls if a previous one is still running.
@@ -115,7 +134,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const ownedOrgResult = await withTimeout(
+        async (signal) => await supabase.from("organizations").select("id").eq("owner_id", input.userId).abortSignal(signal).maybeSingle(),
+        3000
+      );
+      if (ownedOrgResult?.data?.id) {
+        console.log("[Bootstrap] Existing organization found by owner_id, skipping setup.");
+        didBootstrapOrgForUserRef.current = input.userId;
+        return;
+      }
+
       console.log('[Bootstrap] No membership found, invoking setup-organization edge function...');
+      markOrgSetupAttempt(input.userId);
       await invokeSetupOrganization();
       didBootstrapOrgForUserRef.current = input.userId;
     } catch (e: unknown) {

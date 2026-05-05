@@ -3,7 +3,6 @@ import { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../types/user';
-import { supabase } from '../lib/supabase';
 
 type ProofVerifyResponse =
   | { valid: true; expiresAt?: number }
@@ -107,44 +106,7 @@ export function RequireAuth({
     }
   }, [effectiveRole, roleList, user, isLoading, isResolvingRole, navigate]);
 
-  const [isFallbackLoading, setIsFallbackLoading] = useState(true);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    
-    // Safety timeout: stop loading after 5 seconds no matter what
-    timeoutRef.current = setTimeout(() => {
-      if (alive) {
-        console.warn("[RequireAuth] Loading timeout reached, forcing fallback loading to false");
-        setIsFallbackLoading(false);
-      }
-    }, 5000);
-
-    // Initial check
-    if (!isLoading && !isResolvingRole) {
-      setIsFallbackLoading(false);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      return;
-    }
-
-    // Fallback: check session directly
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!alive) return;
-      if (data.session) {
-        console.log("[RequireAuth] Found session via fallback check");
-      }
-      setIsFallbackLoading(false);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    });
-
-    return () => {
-      alive = false;
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [isLoading, isResolvingRole]);
-
-  if ((isLoading || isResolvingRole) && isFallbackLoading) {
+  if (isLoading || isResolvingRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">

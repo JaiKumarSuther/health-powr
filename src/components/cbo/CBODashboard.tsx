@@ -4,10 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import CBOOverview from './CBOOverview';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { requestsApi } from '../../api/requests';
-import { orgsApi } from '../../api/organizations';
 import { messagesApi } from '../../api/messages';
 import { supabase } from '../../lib/supabase';
-import { useEffect, useRef, useState, lazy, Suspense, type ComponentType } from 'react';
+import { useEffect, useState, lazy, Suspense, type ComponentType } from 'react';
 import type { OrganizationRow } from '../../lib/organzationsApi';
 
 const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
@@ -90,7 +89,6 @@ export function CBODashboard() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
   const [loadError, setLoadError] = useState(false);
-  const bootstrapAttempted = useRef(false);
   const isRestrictedRole = membershipRole === 'member' || membershipRole === null;
 
   useEffect(() => {
@@ -148,37 +146,6 @@ export function CBODashboard() {
             navigate('/cbo/assigned', { replace: true });
           }
           return;
-        }
-
-        // No org found — attempt to bootstrap from user metadata
-        if (!bootstrapAttempted.current && currentUser.organization?.trim()) {
-          bootstrapAttempted.current = true;
-          try {
-            await orgsApi.setup();
-            await new Promise(r => setTimeout(r, 3000));
-            const retryCtx = await requestsApi.getMyOrgMembership();
-            if (!active) return;
-            if (retryCtx.orgId) {
-              const role = (retryCtx.role as 'owner' | 'admin' | 'member' | null) ?? null;
-              setOrgId(retryCtx.orgId);
-              setMembershipRole(role);
-              setMembershipLoaded(true);
-              const { data: orgData } = await supabase
-                .from("organizations")
-                .select("id, owner_id, name, borough, status, email, phone, address, description, created_at")
-                .eq("id", retryCtx.orgId)
-                .maybeSingle();
-              if (active) {
-                setOrganization((orgData as OrganizationRow | null) ?? null);
-              }
-              if (!viewFromPath(pathname)) {
-                navigate(role === 'member' ? '/cbo/assigned' : '/cbo/overview', { replace: true });
-              }
-              return;
-            }
-          } catch {
-            // Fall through to show error state
-          }
         }
 
         if (!active) return;
