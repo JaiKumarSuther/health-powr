@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { requestsApi } from '../../api/requests';
 import { messagesApi } from '../../api/messages';
-import { supabase } from '../../lib/supabase';
+import { invokeSetupOrganization } from '../../lib/setupOrganization';
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 
 const CBOOverview = lazy(() => import('./CBOOverview').then(m => ({ default: m.CBOOverview })));
@@ -19,36 +19,6 @@ const SettingsView = lazy(() => import('./SettingsView').then(m => ({ default: m
 const HelpSupportView = lazy(() => import('./HelpSupportView').then(m => ({ default: m.HelpSupportView })));
 const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
 const StaffOverviewView = lazy(() => import('../staff/StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
-
-async function invokeSetupOrganization(input: { orgName: string; borough: string }, accessToken: string) {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!supabaseUrl || !anonKey) {
-    throw new Error('Missing Supabase configuration.');
-  }
-
-  const res = await fetch(`${supabaseUrl}/functions/v1/setup-organization`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(input),
-  });
-
-  let body: any = null;
-  try {
-    body = await res.json();
-  } catch {
-    // ignore
-  }
-  if (!res.ok) {
-    const msg = body?.error || body?.message || `Request failed (${res.status}).`;
-    throw new Error(String(msg));
-  }
-  return body;
-}
 
 export type CBOView =
   | 'overview'
@@ -151,13 +121,7 @@ export function CBODashboard() {
         if (!bootstrapAttempted.current && currentUser.organization?.trim()) {
           bootstrapAttempted.current = true;
           try {
-            const { data: sess } = await supabase.auth.getSession();
-            const token = sess.session?.access_token;
-            if (!token) throw new Error('Missing session token.');
-            await invokeSetupOrganization(
-              { orgName: currentUser.organization, borough: 'Manhattan' },
-              token,
-            );
+            await invokeSetupOrganization(currentUser.organization, 'Manhattan');
             await new Promise(r => setTimeout(r, 3000))
             const retryCtx = await requestsApi.getMyOrgMembership();
             if (!active) return;
@@ -273,15 +237,9 @@ export function CBODashboard() {
                   type="button"
                   onClick={async () => {
                     try {
-                      const { data: sess } = await supabase.auth.getSession();
-                      const token = sess.session?.access_token;
-                      if (!token) throw new Error('Missing session token.');
                       await invokeSetupOrganization(
-                        {
-                          orgName: user?.organization || 'My Organization',
-                          borough: profile?.borough || 'Manhattan',
-                        },
-                        token,
+                        user?.organization || 'My Organization',
+                        profile?.borough || 'Manhattan',
                       );
                       await new Promise(r => setTimeout(r, 2500))
                       window.location.reload()

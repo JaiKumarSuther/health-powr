@@ -345,7 +345,10 @@ export async function getOrCreateDirectConversation(
   return createDirectConversation(organizationId, otherProfileId)
 }
 
-// Subscribe to internal conversations list (new messages bubble up)
+// Subscribe to internal conversations list (new messages bubble up).
+// The filter scopes realtime events to only the given org's conversations,
+// avoiding unnecessary callbacks (and potential activity disclosure) from
+// other organizations' message inserts.
 export function subscribeToInternalConversations(
   organizationId: string,
   onUpdate: () => void
@@ -355,7 +358,14 @@ export function subscribeToInternalConversations(
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',
-      table: 'messages',
+      table: 'conversations',
+      filter: `organization_id=eq.${organizationId}`,
+    }, () => onUpdate())
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'conversations',
+      filter: `organization_id=eq.${organizationId}`,
     }, () => onUpdate())
     .subscribe()
 }

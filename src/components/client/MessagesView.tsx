@@ -18,7 +18,7 @@ function timeLabel(dateStr: string): string {
 }
 
 function initials(name: string): string {
-  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  return name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
 
@@ -44,6 +44,7 @@ export function MessagesView() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // Use container width (not window) so this view is responsive even inside a narrow column.
   useEffect(() => {
@@ -121,6 +122,7 @@ export function MessagesView() {
   async function sendMessage() {
     if (!newMessage.trim() || !selectedConvId) return;
     const content = newMessage.trim();
+    setSendError(null);
     setNewMessage('');
     try {
       const sent = (await messagesApi.send(selectedConvId, content)) as Message;
@@ -131,6 +133,9 @@ export function MessagesView() {
       });
     } catch (err) {
       console.error('[MessagesView] Failed to send message:', err);
+      // Restore the unsent message so the user can retry without losing their text.
+      setNewMessage(content);
+      setSendError('Failed to send message. Please try again.');
     }
   }
 
@@ -292,21 +297,27 @@ export function MessagesView() {
             </div>
 
             {/* Input */}
-            <footer className="px-4 py-4 bg-white border-t border-[#e8f0ee] flex items-center gap-3 flex-shrink-0">
-              <input
-                value={newMessage}
-                onChange={e => setNewMessage(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') void sendMessage(); }}
-                placeholder="Type your message..."
-                className="flex-1 px-4 py-3 border border-[#e8f0ee] rounded-xl text-[14px] outline-none focus:border-[#0d9b8a] bg-[#f6faf8] focus:bg-white transition-all text-[#0f1f2e] placeholder-[#7a9e99]"
-              />
-              <button
-                onClick={() => void sendMessage()}
-                disabled={!newMessage.trim()}
-                className="w-11 h-11 rounded-xl bg-[#0d9b8a] flex items-center justify-center hover:bg-[#0b8a7a] transition-colors disabled:opacity-40 flex-shrink-0 border-none cursor-pointer"
-              >
-                <Send className="w-5 h-5 text-white" />
-              </button>
+            <footer className="px-4 py-4 bg-white border-t border-[#e8f0ee] flex-shrink-0">
+              {sendError && (
+                <p className="text-[12px] text-red-600 mb-2">{sendError}</p>
+              )}
+              <div className="flex items-center gap-3">
+                <input
+                  value={newMessage}
+                  onChange={e => { setNewMessage(e.target.value); setSendError(null); }}
+                  onKeyDown={e => { if (e.key === 'Enter') void sendMessage(); }}
+                  placeholder="Type your message..."
+                  className="flex-1 px-4 py-3 border border-[#e8f0ee] rounded-xl text-[14px] outline-none focus:border-[#0d9b8a] bg-[#f6faf8] focus:bg-white transition-all text-[#0f1f2e] placeholder-[#7a9e99]"
+                />
+                <button
+                  onClick={() => void sendMessage()}
+                  disabled={!newMessage.trim()}
+                  aria-label="Send message"
+                  className="w-11 h-11 rounded-xl bg-[#0d9b8a] flex items-center justify-center hover:bg-[#0b8a7a] transition-colors disabled:opacity-40 flex-shrink-0 border-none cursor-pointer"
+                >
+                  <Send className="w-5 h-5 text-white" />
+                </button>
+              </div>
             </footer>
           </>
         ) : (
