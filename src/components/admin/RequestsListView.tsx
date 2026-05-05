@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { getUrgencyColor, getUrgencyLabel } from '../../api/requests';
 import { StatusBadge } from '../shared/StatusBadge';
+import { queryKeys } from '../../lib/queryKeys';
 
 type AdminRequest = {
   id: string;
@@ -41,7 +42,7 @@ export function RequestsListView({ onViewRequest }: Props) {
   const pageSize = 50;
 
   const requestsQuery = useQuery({
-    queryKey: ['admin', 'requests', 'list', page],
+    queryKey: queryKeys.adminRequestsList(page),
     enabled: !!user,
     queryFn: async () =>
       (await requestsApi.getAllRequests(undefined, { page, pageSize })) as AdminRequest[],

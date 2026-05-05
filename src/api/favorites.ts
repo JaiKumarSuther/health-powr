@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { queryKeys } from '../lib/queryKeys';
 
 /**
  * Get all favorited service IDs for a user.
@@ -57,8 +58,9 @@ export async function toggleFavorite(
 
 export function useFavorites() {
   const { user } = useAuth();
+  const userId = user?.id ?? "";
   return useQuery({
-    queryKey: ['favorites', user?.id],
+    queryKey: queryKeys.favorites(userId),
     queryFn: () => getFavorites(user!.id),
     enabled: !!user?.id,
     staleTime: 5 * 60 * 1000,
@@ -68,26 +70,27 @@ export function useFavorites() {
 export function useToggleFavorite() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const userId = user?.id ?? "";
 
   return useMutation({
     mutationFn: (serviceId: string) => toggleFavorite(user!.id, serviceId),
     // Optimistic update — heart fills instantly, reverts on error
     onMutate: async (serviceId: string) => {
-      await queryClient.cancelQueries({ queryKey: ['favorites', user?.id] });
-      const previous = queryClient.getQueryData<string[]>(['favorites', user?.id]) ?? [];
+      await queryClient.cancelQueries({ queryKey: queryKeys.favorites(userId) });
+      const previous = queryClient.getQueryData<string[]>(queryKeys.favorites(userId)) ?? [];
       const isCurrentlyFavorited = previous.includes(serviceId);
       const updated = isCurrentlyFavorited
         ? previous.filter(id => id !== serviceId)
         : [...previous, serviceId];
-      queryClient.setQueryData(['favorites', user?.id], updated);
+      queryClient.setQueryData(queryKeys.favorites(userId), updated);
       return { previous };
     },
     onError: (_err, _serviceId, context) => {
       // Revert on failure
-      queryClient.setQueryData(['favorites', user?.id], context?.previous);
+      queryClient.setQueryData(queryKeys.favorites(userId), context?.previous);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorites', user?.id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites(userId), exact: true });
     },
   });
 }

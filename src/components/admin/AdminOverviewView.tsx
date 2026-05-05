@@ -16,6 +16,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import { requestsApi } from "../../api/requests";
 import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/queryKeys";
 import {
   AlertCircle,
   Building2,
@@ -208,7 +209,7 @@ export function AdminOverviewView() {
   const [chartView, setChartView] = useState<"area" | "bar">("area");
   
   const overviewQuery = useQuery({
-    queryKey: ["admin", "overview"],
+    queryKey: queryKeys.adminOverview(),
     queryFn: async () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

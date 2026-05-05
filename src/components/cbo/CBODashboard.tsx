@@ -7,7 +7,8 @@ import { requestsApi } from '../../api/requests';
 import { orgsApi } from '../../api/organizations';
 import { messagesApi } from '../../api/messages';
 import { supabase } from '../../lib/supabase';
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense, type ComponentType } from 'react';
+import type { OrganizationRow } from '../../lib/organzationsApi';
 
 const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
   const component = (mod as any)[exportName] ?? (mod as any).default;
@@ -15,16 +16,16 @@ const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: 
   return { default: component };
 };
 
-const ClientsView = lazy(() => import('./ClientsView').then(m => toLazyComponent(m, 'ClientsView', 'ClientsView')));
-const ServicesView = lazy(() => import('./ServicesView').then(m => toLazyComponent(m, 'ServicesView', 'ServicesView')));
-const CreateServicePage = lazy(() => import('./CreateServicePage').then(m => toLazyComponent(m, 'CreateServicePage', 'CreateServicePage')));
-const ServiceDetailPage = lazy(() => import('./ServiceDetailPage').then(m => toLazyComponent(m, 'ServiceDetailPage', 'ServiceDetailPage')));
+const ClientsView = lazy(() => import('./ClientsView').then(m => toLazyComponent(m, 'ClientsView', 'ClientsView'))) as unknown as ComponentType<any>;
+const ServicesView = lazy(() => import('./ServicesView').then(m => toLazyComponent(m, 'ServicesView', 'ServicesView'))) as unknown as ComponentType<any>;
+const CreateServicePage = lazy(() => import('./CreateServicePage').then(m => toLazyComponent(m, 'CreateServicePage', 'CreateServicePage'))) as unknown as ComponentType<any>;
+const ServiceDetailPage = lazy(() => import('./ServiceDetailPage').then(m => toLazyComponent(m, 'ServiceDetailPage', 'ServiceDetailPage'))) as unknown as ComponentType<any>;
 const MessagesView = lazy(() => import('./MessagesView').then(m => toLazyComponent(m, 'MessagesView', 'MessagesView')));
 const InternalMessagingView = lazy(() => import('./InternalMessagingView').then(m => toLazyComponent(m, 'InternalMessagingView', 'InternalMessagingView')));
-const ReportsView = lazy(() => import('./ReportsView').then(m => toLazyComponent(m, 'ReportsView', 'ReportsView')));
+const ReportsView = lazy(() => import('./ReportsView').then(m => toLazyComponent(m, 'ReportsView', 'ReportsView'))) as unknown as ComponentType<any>;
 const SettingsView = lazy(() => import('./SettingsView').then(m => toLazyComponent(m, 'SettingsView', 'SettingsView')));
 const HelpSupportView = lazy(() => import('./HelpSupportView').then(m => toLazyComponent(m, 'HelpSupportView', 'HelpSupportView')));
-const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => toLazyComponent(m, 'AccountSettingsView', 'AccountSettingsView')));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => toLazyComponent(m, 'AccountSettingsView', 'AccountSettingsView'))) as unknown as ComponentType<any>;
 import StaffOverviewView from '../staff/StaffOverviewView';
 
 async function invokeSetupOrganization(input: { orgName: string; borough: string }, accessToken: string) {
@@ -85,6 +86,7 @@ export function CBODashboard() {
   const [membershipRole, setMembershipRole] = useState<'owner' | 'admin' | 'member' | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [membershipLoaded, setMembershipLoaded] = useState(false);
+  const [organization, setOrganization] = useState<OrganizationRow | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
   const [loadError, setLoadError] = useState(false);
@@ -129,19 +131,13 @@ export function CBODashboard() {
           setOrgId(ctx.orgId);
           setMembershipRole(role);
           setMembershipLoaded(true);
-
-          // Sidebar badge: unread client messages for this user (staff → assigned only)
-          try {
-            const convs = await messagesApi.getMyOrgConversations();
-            if (active) {
-              const totalUnread = (convs ?? []).reduce((sum: number, c: any) => {
-                const n = typeof c?.unread_count === 'number' ? c.unread_count : 0;
-                return sum + (n > 0 ? n : 0);
-              }, 0);
-              setUnreadMessagesCount(totalUnread);
-            }
-          } catch {
-            if (active) setUnreadMessagesCount(0);
+          const { data: orgData } = await supabase
+            .from("organizations")
+            .select("id, owner_id, name, borough, status, email, phone, address, description, created_at")
+            .eq("id", ctx.orgId)
+            .maybeSingle();
+          if (active) {
+            setOrganization((orgData as OrganizationRow | null) ?? null);
           }
 
           // Redirect to default view when landing on bare /cbo
@@ -167,6 +163,14 @@ export function CBODashboard() {
               setOrgId(retryCtx.orgId);
               setMembershipRole(role);
               setMembershipLoaded(true);
+              const { data: orgData } = await supabase
+                .from("organizations")
+                .select("id, owner_id, name, borough, status, email, phone, address, description, created_at")
+                .eq("id", retryCtx.orgId)
+                .maybeSingle();
+              if (active) {
+                setOrganization((orgData as OrganizationRow | null) ?? null);
+              }
               if (!viewFromPath(pathname)) {
                 navigate(role === 'member' ? '/cbo/assigned' : '/cbo/overview', { replace: true });
               }
@@ -179,6 +183,7 @@ export function CBODashboard() {
 
         if (!active) return;
         setOrgId(null);
+        setOrganization(null);
         setMembershipRole(null);
         setMembershipLoaded(true);
         if (!currentUser.organization?.trim()) {
@@ -191,6 +196,7 @@ export function CBODashboard() {
       } catch {
         if (!active) return;
         setMembershipRole(null);
+        setOrganization(null);
         setMembershipLoaded(true);
       }
     }
@@ -203,6 +209,42 @@ export function CBODashboard() {
     await signOut();
     navigate('/', { replace: true });
   };
+
+  // Determine effective view from URL, gated by role
+  const effectiveView: CBOView = (() => {
+    const v = urlView;
+    if (!v) return isRestrictedRole ? 'assigned' : 'overview';
+    if (isRestrictedRole && !STAFF_VIEWS.includes(v)) return 'assigned';
+    // Owner cannot access client messaging; redirect to Team.
+    if (membershipRole === 'owner' && v === 'messages') return 'team';
+    return v;
+  })();
+
+  useEffect(() => {
+    if (!user || !orgId) return;
+    // Keep /cbo/clients and /cbo/reports page loads lean:
+    // only fetch conversation unread counts on messaging-related views.
+    if (effectiveView !== 'messages' && effectiveView !== 'team') return;
+
+    let active = true;
+    void messagesApi
+      .getMyOrgConversations()
+      .then((convs) => {
+        if (!active) return;
+        const totalUnread = (convs ?? []).reduce((sum: number, c: any) => {
+          const n = typeof c?.unread_count === 'number' ? c.unread_count : 0;
+          return sum + (n > 0 ? n : 0);
+        }, 0);
+        setUnreadMessagesCount(totalUnread);
+      })
+      .catch(() => {
+        if (active) setUnreadMessagesCount(0);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user, orgId, effectiveView]);
 
   if (loadError && !membershipLoaded) {
     return (
@@ -327,16 +369,6 @@ export function CBODashboard() {
     );
   }
 
-  // Determine effective view from URL, gated by role
-  const effectiveView: CBOView = (() => {
-    const v = urlView;
-    if (!v) return isRestrictedRole ? 'assigned' : 'overview';
-    if (isRestrictedRole && !STAFF_VIEWS.includes(v)) return 'assigned';
-    // Owner cannot access client messaging; redirect to Team.
-    if (membershipRole === 'owner' && v === 'messages') return 'team';
-    return v;
-  })();
-
   const handleViewChange = (nextView: CBOView) => {
     const allowed = isRestrictedRole
       ? (STAFF_VIEWS.includes(nextView) ? nextView : 'assigned')
@@ -353,13 +385,13 @@ export function CBODashboard() {
           path="overview"
           element={membershipRole === 'member' ? <StaffOverviewView /> : <CBOOverview />}
         />
-        <Route path="clients" element={<ClientsView />} />
-        <Route path="clients/:requestId" element={<ClientsView />} />
-        <Route path="assigned" element={<ClientsView staffMode />} />
-        <Route path="assigned/:requestId" element={<ClientsView staffMode />} />
-        <Route path="services" element={<ServicesView />} />
-        <Route path="services/:serviceId" element={<ServiceDetailPage />} />
-        <Route path="services/new" element={<CreateServicePage />} />
+        <Route path="clients" element={<ClientsView orgId={orgId} membershipRole={membershipRole} />} />
+        <Route path="clients/:requestId" element={<ClientsView orgId={orgId} membershipRole={membershipRole} />} />
+        <Route path="assigned" element={<ClientsView staffMode orgId={orgId} membershipRole={membershipRole} />} />
+        <Route path="assigned/:requestId" element={<ClientsView staffMode orgId={orgId} membershipRole={membershipRole} />} />
+        <Route path="services" element={<ServicesView organization={organization} />} />
+        <Route path="services/:serviceId" element={<ServiceDetailPage organization={organization} />} />
+        <Route path="services/new" element={<CreateServicePage organization={organization} />} />
         <Route path="reports" element={<ReportsView orgId={orgId} />} />
         <Route
           path="messages"

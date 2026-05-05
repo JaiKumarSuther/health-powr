@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { useUserOrganization } from "../../hooks/useOrganizations";
 import type { OrganizationRow } from "../../lib/organzationsApi";
 import {
   type ServiceCategory,
@@ -77,11 +75,9 @@ function validateLatLng(lat: number | null, lng: number | null) {
   return { ok: true, message: null as string | null };
 }
 
-export function CreateServicePage() {
+export function CreateServicePage({ organization }: { organization: OrganizationRow | null }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const orgQuery = useUserOrganization(user?.id);
-  const org = (orgQuery.data ?? null) as OrganizationRow | null;
+  const org = organization;
 
   const categoriesQuery = useServiceCategories();
   const createService = useCreateService();
@@ -114,14 +110,6 @@ export function CreateServicePage() {
     if (!org) return false;
     return org.status === "approved";
   }, [org]);
-
-  if (orgQuery.isLoading) {
-    return (
-      <div className="py-20 text-center text-gray-500">
-        Loading organization...
-      </div>
-    );
-  }
 
   if (!org) {
     return (

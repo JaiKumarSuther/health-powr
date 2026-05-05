@@ -7,6 +7,7 @@ import { Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { requestsApi } from '../../api/requests';
 import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
 
 type KV = { name: string; value: number };
 type DateCount = { date: string; count: number };
@@ -94,7 +95,7 @@ export function ReportsView() {
   const [exporting, setExporting] = useState(false);
 
   const reportQuery = useQuery({
-    queryKey: ['admin', 'reports', 'summary'],
+    queryKey: queryKeys.adminReportsSummary(),
     queryFn: async () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

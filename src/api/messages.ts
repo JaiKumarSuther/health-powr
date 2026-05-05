@@ -149,17 +149,6 @@ export const messagesApi = {
             full_name,
             avatar_url
           ),
-          service_request:service_requests!request_id (
-            id,
-            category,
-            status,
-            borough,
-            assigned_staff:profiles!assigned_staff_id(id, full_name, avatar_url),
-            services (
-              name,
-              category
-            )
-          ),
           messages (
             content,
             created_at
@@ -177,6 +166,23 @@ export const messagesApi = {
     if (membership.role === 'owner') return []
 
     return [] // Should not be reached given OrgMembershipRole values, but keeps TS happy.
+  },
+
+  async getConversationRequestDetails(requestId: string) {
+    const { data, error } = await supabase
+      .from('service_requests')
+      .select(`
+        id,
+        category,
+        status,
+        borough,
+        assigned_staff:profiles!assigned_staff_id(id, full_name, avatar_url)
+      `)
+      .eq('id', requestId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data ?? null
   },
 
   // Subscribe to new messages (realtime)

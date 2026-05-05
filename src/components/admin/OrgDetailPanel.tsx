@@ -3,7 +3,7 @@ import { Check, PauseCircle, Trash2, X } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { orgsApi } from "../../api/organizations";
 import { useQueryClient } from "@tanstack/react-query";
-import { adminOrganizationsQueryKeys } from "../../hooks/useAdminOrganizations";
+import { queryKeys } from "../../lib/queryKeys";
 
 type OrgDetail = {
   id: string;
@@ -102,7 +102,7 @@ export function OrgDetailPanel({ orgId, onClose }: OrgDetailPanelProps) {
     setActionLoading(true);
     try {
       await orgsApi.updateStatus(org.id, status, status === "rejected" ? rejectReason || "Not provided" : undefined);
-      await queryClient.invalidateQueries({ queryKey: adminOrganizationsQueryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminOrgs() });
       await loadOrg(org.id);
     } finally {
       setActionLoading(false);
@@ -118,7 +118,7 @@ export function OrgDetailPanel({ orgId, onClose }: OrgDetailPanelProps) {
     setActionLoading(true);
     try {
       await orgsApi.delete(org.id);
-      await queryClient.invalidateQueries({ queryKey: adminOrganizationsQueryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminOrgs() });
       onClose();
     } finally {
       setActionLoading(false);

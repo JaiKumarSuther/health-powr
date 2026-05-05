@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orgsApi } from "../api/organizations";
+import { queryKeys } from "../lib/queryKeys";
 
 export type AdminOrgStatus = "pending" | "approved" | "rejected" | "suspended";
 
@@ -26,14 +27,9 @@ export type AdminOrg = {
   } | null;
 };
 
-export const adminOrganizationsQueryKeys = {
-  all: ["admin", "organizations"] as const,
-  list: () => [...adminOrganizationsQueryKeys.all, "list"] as const,
-};
-
 export function useAdminOrganizations(enabled: boolean) {
   return useQuery({
-    queryKey: adminOrganizationsQueryKeys.list(),
+    queryKey: queryKeys.adminOrgs(),
     queryFn: async () => {
       const data = (await orgsApi.getAll()) as unknown as AdminOrg[];
       const seen = new Set<string>();
@@ -60,7 +56,7 @@ export function useUpdateOrganizationStatus() {
     }) => orgsApi.updateStatus(input.orgId, input.status, input.reason),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: adminOrganizationsQueryKeys.all,
+        queryKey: queryKeys.adminOrgs(),
       });
     },
   });
@@ -73,7 +69,7 @@ export function useDeleteOrganization() {
     mutationFn: (orgId: string) => orgsApi.delete(orgId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: adminOrganizationsQueryKeys.all,
+        queryKey: queryKeys.adminOrgs(),
       });
     },
   });

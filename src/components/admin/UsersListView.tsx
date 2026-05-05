@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUrgencyColor, getUrgencyLabel } from '../../api/requests';
 import { StatusBadge } from '../shared/StatusBadge';
+import { queryKeys } from '../../lib/queryKeys';
 
 type CommunityMember = {
   id: string;
@@ -33,7 +34,7 @@ export function UsersListView() {
   const queryClient = useQueryClient();
 
   const usersQuery = useQuery({
-    queryKey: ['admin', 'users', 'community_members'],
+    queryKey: queryKeys.adminUsersCommunityMembers(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -49,7 +50,7 @@ export function UsersListView() {
   });
 
   const userRequestsQuery = useQuery({
-    queryKey: ['admin', 'users', 'requests', viewRequestsFor?.id],
+    queryKey: queryKeys.adminUserRequests(viewRequestsFor?.id),
     enabled: !!viewRequestsFor?.id,
     queryFn: async () => {
       const memberId = viewRequestsFor?.id;
@@ -77,7 +78,7 @@ export function UsersListView() {
       });
       if (fnErr) throw fnErr;
       // Refresh list only when a change occurred.
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers() });
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Action failed.');
     } finally {

@@ -354,3 +354,5 @@ export function HeroMap() {
   );
 }
 
+export default HeroMap;
+

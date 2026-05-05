@@ -443,8 +443,8 @@ export function CBOReports({
 
   const reportsQuery = useQuery({
     queryKey: orgId
-      ? queryKeys.cboReports(orgId, period, customFrom || undefined, customTo || undefined)
-      : ['cbo_reports', 'no_org'],
+      ? queryKeys.cboReportsCustom(orgId, period, customFrom || undefined, customTo || undefined)
+      : queryKeys.cboReports("no_org"),
     enabled: !!orgId,
     queryFn: async () => fetchReportsData(orgId!, period, customFrom || undefined, customTo || undefined),
   });
@@ -459,7 +459,7 @@ export function CBOReports({
         { event: '*', schema: 'public', table: 'service_requests', filter: `assigned_org_id=eq.${orgId}` },
         () => {
           void queryClient.invalidateQueries({
-            queryKey: queryKeys.cboReports(orgId, period, customFrom || undefined, customTo || undefined),
+            queryKey: queryKeys.cboReportsCustom(orgId, period, customFrom || undefined, customTo || undefined),
           });
         },
       )

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
+import { queryKeys } from "../lib/queryKeys";
 
 export type ServiceCategory =
   | "housing"
@@ -87,21 +88,9 @@ export type ServiceCategoryOption = {
   color?: string | null;
 };
 
-export const servicesQueryKeys = {
-  all: ["services"] as const,
-  categories: () => [...servicesQueryKeys.all, "categories"] as const,
-  byOrg: (orgId: string) => [...servicesQueryKeys.all, "org", orgId] as const,
-  byId: (serviceId: string) => [...servicesQueryKeys.all, "id", serviceId] as const,
-  publicList: (filters: {
-    category?: string;
-    borough?: string;
-    search?: string;
-  }) => [...servicesQueryKeys.all, "public", filters] as const,
-};
-
 export function useServiceCategories() {
   return useQuery({
-    queryKey: servicesQueryKeys.categories(),
+    queryKey: queryKeys.serviceCategories(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("service_categories")
@@ -116,7 +105,7 @@ export function useServiceCategories() {
 
 export function useOrganizationServices(orgId: string | undefined) {
   return useQuery({
-    queryKey: servicesQueryKeys.byOrg(orgId ?? ""),
+    queryKey: queryKeys.services(orgId ?? ""),
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -135,7 +124,7 @@ export function useOrganizationServices(orgId: string | undefined) {
 
 export function useServiceById(serviceId: string | undefined) {
   return useQuery({
-    queryKey: servicesQueryKeys.byId(serviceId ?? ""),
+    queryKey: queryKeys.serviceById(serviceId ?? ""),
     enabled: !!serviceId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -178,10 +167,12 @@ export function useCreateService() {
     },
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({
-        queryKey: servicesQueryKeys.byOrg(created.organization_id),
+        queryKey: queryKeys.services(created.organization_id),
+        exact: true,
       });
-      // Also refresh any public lists that might include this new service.
-      await queryClient.invalidateQueries({ queryKey: servicesQueryKeys.all });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.servicesPublic(),
+      });
     },
   });
 }
@@ -206,10 +197,11 @@ export function useUpdateServiceAvailability() {
       return data as ServiceRow;
     },
     onSuccess: async (updated) => {
+      queryClient.setQueryData(queryKeys.serviceById(updated.id), updated);
       await queryClient.invalidateQueries({
-        queryKey: servicesQueryKeys.byOrg(updated.organization_id),
+        queryKey: queryKeys.services(updated.organization_id),
+        exact: true,
       });
-      await queryClient.invalidateQueries({ queryKey: servicesQueryKeys.all });
     },
   });
 }
@@ -240,13 +232,11 @@ export function useUpdateService() {
       return data as ServiceRow;
     },
     onSuccess: async (updated) => {
+      queryClient.setQueryData(queryKeys.serviceById(updated.id), updated);
       await queryClient.invalidateQueries({
-        queryKey: servicesQueryKeys.byOrg(updated.organization_id),
+        queryKey: queryKeys.services(updated.organization_id),
+        exact: true,
       });
-      await queryClient.invalidateQueries({
-        queryKey: servicesQueryKeys.byId(updated.id),
-      });
-      await queryClient.invalidateQueries({ queryKey: servicesQueryKeys.all });
     },
   });
 }
@@ -257,7 +247,7 @@ export function usePublicServices(filters: {
   search?: string;
 }) {
   return useQuery({
-    queryKey: servicesQueryKeys.publicList(filters),
+    queryKey: queryKeys.servicesPublic(filters),
     queryFn: async () => {
       // NOTE: We join organizations to show org name/borough in the client UI.
       // We also filter to approved orgs only.

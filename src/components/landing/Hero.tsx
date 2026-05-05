@@ -3,7 +3,12 @@ import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import "./HeroExact.css";
 
 const HeroMap = lazy(() =>
-  import("./HeroMap").then((m) => ({ default: m.HeroMap })),
+  import("./HeroMap").then((m) => {
+    if (!m.HeroMap) {
+      throw new Error("HeroMap: missing named export 'HeroMap'");
+    }
+    return { default: m.HeroMap };
+  }),
 );
 
 type Pill = { label: string; category?: string; svg: React.ReactNode };

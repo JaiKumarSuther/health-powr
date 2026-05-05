@@ -3,6 +3,21 @@ import type { ServiceCategory, RequestStatus } from "../lib/types";
 import { requireUser } from "./requireUser";
 
 type OrgMembershipRole = "owner" | "admin" | "member";
+type OrgMembershipContext = {
+  orgId: string | null;
+  role: OrgMembershipRole | null;
+  userId: string | null;
+};
+
+let membershipCache: {
+  userId: string;
+  value: OrgMembershipContext;
+  expiresAt: number;
+} | null = null;
+let membershipInFlight: {
+  userId: string;
+  promise: Promise<OrgMembershipContext>;
+} | null = null;
 
 function clampPageSize(pageSize?: number) {
   return Math.max(1, Math.min(200, pageSize ?? 50));
@@ -43,20 +58,44 @@ export const requestsApi = {
     const userId = sess.session?.user?.id ?? null;
     if (!userId) return { orgId: null, role: null, userId: null };
 
-    const { data, error } = await supabase
-      .from("organization_members")
-      .select("organization_id, role")
-      .eq("profile_id", userId)
-      .order("joined_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
+    if (membershipCache && membershipCache.userId === userId && Date.now() < membershipCache.expiresAt) {
+      return membershipCache.value;
+    }
+    if (membershipInFlight && membershipInFlight.userId === userId) {
+      return membershipInFlight.promise;
+    }
 
-    return {
-      orgId: data?.organization_id ?? null,
-      role: (data?.role as OrgMembershipRole | undefined) ?? null,
-      userId,
-    };
+    const promise = (async () => {
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("organization_id, role")
+        .eq("profile_id", userId)
+        .order("joined_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+
+      const value = {
+        orgId: data?.organization_id ?? null,
+        role: (data?.role as OrgMembershipRole | undefined) ?? null,
+        userId,
+      };
+      membershipCache = {
+        userId,
+        value,
+        expiresAt: Date.now() + 60_000,
+      };
+      return value;
+    })();
+
+    membershipInFlight = { userId, promise };
+    try {
+      return await promise;
+    } finally {
+      if (membershipInFlight?.userId === userId) {
+        membershipInFlight = null;
+      }
+    }
   },
 
   async getOrgTeamMembers() {

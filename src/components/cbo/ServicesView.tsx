@@ -1,19 +1,15 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Briefcase, HeartPulse, Home, FileText, Eye } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
-import { useUserOrganization } from "../../hooks/useOrganizations";
 import type { OrganizationRow } from "../../lib/organzationsApi";
 import {
   useOrganizationServices,
   useUpdateServiceAvailability,
 } from "../../hooks/useServices";
 
-export function ServicesView() {
+export function ServicesView({ organization }: { organization: OrganizationRow | null }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const orgQuery = useUserOrganization(user?.id);
-  const org = (orgQuery.data ?? null) as OrganizationRow | null;
+  const org = organization;
   const updateService = useUpdateServiceAvailability();
 
   const canManageServices = useMemo(() => {
@@ -22,14 +18,6 @@ export function ServicesView() {
   }, [org]);
 
   const servicesQuery = useOrganizationServices(org?.id);
-
-  if (orgQuery.isLoading) {
-    return (
-      <div className="py-20 text-center text-gray-500">
-        Loading organization...
-      </div>
-    );
-  }
 
   if (!org) {
     return (

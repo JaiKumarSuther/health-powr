@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Eye, Pencil, Save, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { useUserOrganization } from "../../hooks/useOrganizations";
 import type { OrganizationRow } from "../../lib/organzationsApi";
 import { supabase } from "../../lib/supabase";
 import {
@@ -140,12 +138,10 @@ function toForm(service: {
   };
 }
 
-export function ServiceDetailPage() {
+export function ServiceDetailPage({ organization }: { organization: OrganizationRow | null }) {
   const navigate = useNavigate();
   const { serviceId } = useParams<{ serviceId: string }>();
-  const { user } = useAuth();
-  const orgQuery = useUserOrganization(user?.id);
-  const org = (orgQuery.data ?? null) as OrganizationRow | null;
+  const org = organization;
   const canManageServices = useMemo(() => org?.status === "approved", [org?.status]);
 
   const serviceQuery = useServiceById(serviceId);
@@ -178,7 +174,7 @@ export function ServiceDetailPage() {
     setLngInput(next.longitude != null ? String(next.longitude) : "");
   }, [serviceQuery.data]);
 
-  if (orgQuery.isLoading || serviceQuery.isLoading) {
+  if (serviceQuery.isLoading) {
     return <div className="py-20 text-center text-gray-500">Loading…</div>;
   }
 

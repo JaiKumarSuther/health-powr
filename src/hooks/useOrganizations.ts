@@ -7,17 +7,7 @@ import {
   type CreateOrganizationInput,
   type OrganizationRow,
 } from "../lib/organzationsApi";
-
-// Query keys for cache management
-export const organizationsQueryKeys = {
-  all: ["organizations"] as const,
-  byOwner: (ownerId: string) =>
-    [...organizationsQueryKeys.all, "byOwner", ownerId] as const,
-  byUser: (userId: string) =>
-    [...organizationsQueryKeys.all, "byUser", userId] as const,
-  byId: (id: string) => [...organizationsQueryKeys.all, "byId", id] as const,
-  setup: () => [...organizationsQueryKeys.all, "setup"] as const,
-};
+import { queryKeys } from "../lib/queryKeys";
 
 /**
  * Hook to create an organization
@@ -26,14 +16,20 @@ export function useCreateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: organizationsQueryKeys.setup(),
+    mutationKey: ["organization", "setup"],
     mutationFn: (input: CreateOrganizationInput) =>
       organizationsApi.setupOrganizationForUser(input),
     onSuccess: (data, variables) => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: organizationsQueryKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.orgByOwner(variables.ownerId),
+        exact: true,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.orgByUser(variables.ownerId),
+        exact: true,
+      });
       queryClient.setQueryData(
-        organizationsQueryKeys.byOwner(variables.ownerId),
+        queryKeys.orgByOwner(variables.ownerId),
         data.organization,
       );
     },
@@ -45,7 +41,7 @@ export function useCreateOrganization() {
  */
 export function useUserOrganization(userId: string | undefined) {
   return useQuery({
-    queryKey: organizationsQueryKeys.byUser(userId || ""),
+    queryKey: queryKeys.orgByUser(userId || ""),
     queryFn: () => organizationsApi.getUserOrganization(userId!),
     enabled: !!userId,
   });
@@ -56,7 +52,7 @@ export function useUserOrganization(userId: string | undefined) {
  */
 export function useOrganizationByOwner(ownerId: string | undefined) {
   return useQuery({
-    queryKey: organizationsQueryKeys.byOwner(ownerId || ""),
+    queryKey: queryKeys.orgByOwner(ownerId || ""),
     queryFn: () => organizationsApi.getOrganizationByOwner(ownerId!),
     enabled: !!ownerId,
   });
@@ -67,7 +63,7 @@ export function useOrganizationByOwner(ownerId: string | undefined) {
  */
 export function useOrganization(id: string | undefined) {
   return useQuery<OrganizationRow | null>({
-    queryKey: organizationsQueryKeys.byId(id || ""),
+    queryKey: queryKeys.orgById(id || ""),
     queryFn: () => organizationsApi.getOrganizationById(id!),
     enabled: !!id,
   });

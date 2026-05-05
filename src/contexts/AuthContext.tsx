@@ -90,11 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     if (input.role !== "organization") return;
 
-    const orgName =
-      input.organizationName?.trim() ||
-      session?.user?.user_metadata?.organization?.trim() ||
-      'My Organization'
-    
     // Skip if already successfully bootstrapped this session.
     if (didBootstrapOrgForUserRef.current === input.userId) return;
     // Guard setup-organization so it only runs ONCE per session/mount
@@ -108,10 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[Bootstrap] Checking if org setup is needed for user:', input.userId);
       
       // Double check membership before hitting the edge function
-      const { data: existing } = await withTimeout(
+      const membershipResult = await withTimeout(
         async (signal) => await supabase.from('organization_members').select('id').eq('profile_id', input.userId).abortSignal(signal).maybeSingle(),
         3000
       );
+      const existing = membershipResult?.data ?? null;
 
       if (existing) {
         console.log('[Bootstrap] User already has organization membership, skipping setup.');
@@ -241,10 +237,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsResolvingRole(true);
 
       console.log("[AuthContext] Calling getSession...");
-      const { data: { session: sess }, error: sessError } = await withTimeout(
+      const getSessionResult = await withTimeout(
         () => supabase.auth.getSession(),
         5000
       );
+      if (!getSessionResult) {
+        console.warn("[AuthContext] getSession timed out; treating as no active session.");
+      }
+      const sess = getSessionResult?.data?.session ?? null;
+      const sessError = getSessionResult?.error ?? null;
       
       if (sessError) {
         console.error("[AuthContext] getSession error:", sessError);
@@ -289,23 +290,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supaUser = session.user;
       const mapped = mapSupabaseUserToAppUser(supaUser);
       
-      // Start both fetches in parallel
       const profilePromise = fetchProfileWithRetry(supaUser.id);
-      
-      const membershipPromise = (mapped.role === 'organization')
-        ? withTimeout(
-            async (signal) => await supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).abortSignal(signal).maybeSingle(),
-            5000
-          )
-        : Promise.resolve({ data: null, error: null });
-
-      const [profileData, membershipResult] = await Promise.all([
-        profilePromise,
-        membershipPromise
-      ]);
-      console.log("[AuthContext] Fetched profile/membership:", { hasProfile: !!profileData, hasMembership: !!membershipResult });
-
-      const membership = (membershipResult as any)?.data ?? null;
+      const profileData = await profilePromise;
+      console.log("[AuthContext] Fetched profile:", { hasProfile: !!profileData });
 
       if (!isMounted()) return;
 
@@ -345,15 +332,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const resolvedRole = (profileData.role as UserRole) ?? mapped.role;
       if (resolvedRole === 'organization') {
-        if (!membership || membership.role === 'owner') {
-          void maybeBootstrapOrganization({
-            userId: supaUser.id,
-            email: mapped.email,
-            role: resolvedRole,
-            organizationName: mapped.organization,
-            borough: profileData?.borough ?? undefined,
-          });
-        }
+        void maybeBootstrapOrganization({
+          userId: supaUser.id,
+          email: mapped.email,
+          role: resolvedRole,
+          organizationName: mapped.organization,
+          borough: profileData?.borough ?? undefined,
+        });
       }
     } catch (e) {
       console.error("[AuthContext:initializeAuth] Failed.", e);
@@ -396,7 +381,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hasInitialized.current = true;
 
     let isMounted = true;
-    void initializeAuth(() => isMounted);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, nextSession) => {
