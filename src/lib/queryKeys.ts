@@ -37,5 +37,14 @@ export const queryKeys = {
   cboOverview: (userId: string) => ["cbo", "overview", userId] as const,
   cboMessagesBootstrap: (userId: string, topTab: "clients" | "team", requestId?: string) =>
     ["cbo", "messages", "bootstrap", userId, topTab, requestId ?? ""] as const,
+
+  clientConversations: (userId: string, requestId?: string) =>
+    ["client", "conversations", userId, requestId ?? ""] as const,
+  clientApplicationsPage: (userId: string, page: number, pageSize: number) =>
+    ["client", "applications", userId, page, pageSize] as const,
+  clientServicesMeta: (userId: string) => ["client", "services", "meta", userId] as const,
+  communityAnnouncements: () => ["community", "announcements"] as const,
+  communityThreads: () => ["community", "threads"] as const,
+  communityComments: (threadId?: string) => ["community", "comments", threadId ?? ""] as const,
 };
 

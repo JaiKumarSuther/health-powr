@@ -3,6 +3,8 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { forumApi } from "../../api/forum";
 import { announcementsApi } from "../../api/announcements";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/queryKeys";
 import "./CommunityView.css";
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -495,6 +497,7 @@ function ForumPanel({
 /* ─── Main Page Component ────────────────────────────────────────────────── */
 function CommunityPage() {
   const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabId>("ann");
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -503,10 +506,6 @@ function CommunityPage() {
   const [selectedThread, setSelectedThread] = useState<ForumThread | null>(null);
   const [comments, setComments] = useState<ForumComment[]>([]);
   const [panelVisible, setPanelVisible] = useState(true);
-
-  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
-  const [loadingThreads, setLoadingThreads] = useState(true);
-  const [loadingComments, setLoadingComments] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [catFilterAnn, setCatFilterAnn] = useState<"" | AnnCategory>("");
@@ -528,9 +527,9 @@ function CommunityPage() {
     // Font is loaded globally via index.html
   }, []);
 
-  const loadAnnouncements = async () => {
-    setLoadingAnnouncements(true);
-    try {
+  const announcementsQuery = useQuery({
+    queryKey: queryKeys.communityAnnouncements(),
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("org_announcements")
         .select(`
@@ -541,36 +540,36 @@ function CommunityPage() {
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setAnnouncements((data ?? []) as OrgAnnouncement[]);
-    } finally {
-      setLoadingAnnouncements(false);
-    }
-  };
+      return (data ?? []) as OrgAnnouncement[];
+    },
+  });
 
-  const loadThreads = async () => {
-    setLoadingThreads(true);
-    try {
-      const data = (await forumApi.getThreads()) as ForumThread[];
-      setThreads(data);
-      if (data.length > 0) setSelectedThread((prev) => prev ?? data[0]);
-    } finally {
-      setLoadingThreads(false);
-    }
-  };
+  const threadsQuery = useQuery({
+    queryKey: queryKeys.communityThreads(),
+    queryFn: async () => (await forumApi.getThreads()) as ForumThread[],
+  });
+
+  const commentsQuery = useQuery({
+    queryKey: queryKeys.communityComments(selectedThread?.id),
+    enabled: !!selectedThread,
+    queryFn: async () => (await forumApi.getComments(selectedThread!.id)) as ForumComment[],
+  });
 
   useEffect(() => {
-    void loadAnnouncements();
-    void loadThreads();
-  }, []);
+    if (!announcementsQuery.data) return;
+    setAnnouncements(announcementsQuery.data);
+  }, [announcementsQuery.data]);
 
   useEffect(() => {
-    if (!selectedThread) return;
-    setLoadingComments(true);
-    void forumApi.getComments(selectedThread.id).then((data: any) => {
-      setComments(data as ForumComment[]);
-      setLoadingComments(false);
-    });
-  }, [selectedThread?.id]);
+    if (!threadsQuery.data) return;
+    setThreads(threadsQuery.data);
+    if (threadsQuery.data.length > 0) setSelectedThread((prev) => prev ?? threadsQuery.data[0]);
+  }, [threadsQuery.data]);
+
+  useEffect(() => {
+    if (!commentsQuery.data) return;
+    setComments(commentsQuery.data);
+  }, [commentsQuery.data]);
 
   const filteredAnnouncements = useMemo(() => {
     return announcements.filter((a) => {
@@ -627,13 +626,18 @@ function CommunityPage() {
       .select("id, user_id, type")
       .eq("announcement_id", annId);
     setAnnouncements((prev) => prev.map((a) => (a.id === annId ? { ...a, reactions: (data ?? []) as any } : a)));
+    queryClient.setQueryData(queryKeys.communityAnnouncements(), (prev: OrgAnnouncement[] | undefined) =>
+      (prev ?? []).map((a) => (a.id === annId ? { ...a, reactions: (data ?? []) as any } : a))
+    );
   }
 
   async function postComment(text: string) {
     if (!selectedThread || !user) return;
     await forumApi.addComment(selectedThread.id, text);
-    const data = (await forumApi.getComments(selectedThread.id)) as ForumComment[];
-    setComments(data);
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.communityComments(selectedThread.id),
+      exact: true,
+    });
   }
 
   function openModal() {
@@ -679,7 +683,7 @@ function CommunityPage() {
           image_url: imageUrl,
           is_pinned: false,
         });
-        await loadAnnouncements();
+        await queryClient.invalidateQueries({ queryKey: queryKeys.communityAnnouncements() });
         setModalOpen(false);
       } else {
         await forumApi.createThread({
@@ -688,7 +692,7 @@ function CommunityPage() {
           category: formForumCategory,
           borough: formBorough || undefined,
         });
-        await loadThreads();
+        await queryClient.invalidateQueries({ queryKey: queryKeys.communityThreads() });
         setModalOpen(false);
       }
     } finally {
@@ -764,7 +768,7 @@ function CommunityPage() {
 
             <div className="ann-grid">
               <div>
-                {loadingAnnouncements ? (
+                {announcementsQuery.isLoading && !announcementsQuery.data ? (
                   <div className="no-comments">Loading announcements…</div>
                 ) : filteredAnnouncements.length === 0 ? (
                   <div className="no-comments">No announcements found.</div>
@@ -821,7 +825,7 @@ function CommunityPage() {
                 <IconChevron cls="select-arrow" />
               </div>
             </div>
-            {loadingThreads ? (
+            {threadsQuery.isLoading && !threadsQuery.data ? (
               <div className="no-comments">Loading discussions…</div>
             ) : (
               <ForumPanel
@@ -831,7 +835,7 @@ function CommunityPage() {
                 panelVisible={panelVisible}
                 setPanelVisible={setPanelVisible}
                 comments={comments}
-                loadingComments={loadingComments}
+                loadingComments={commentsQuery.isLoading && !commentsQuery.data}
                 onPostComment={(text) => void postComment(text)}
               />
             )}

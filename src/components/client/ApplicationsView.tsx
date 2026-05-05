@@ -9,6 +9,8 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/queryKeys";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -465,34 +467,27 @@ function AppCard({ app, onClick }: { app: ClientApplication; onClick: () => void
 export function ApplicationsView({ requestId }: { requestId?: string }) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedTab, setSelectedTab] = useState("all");
   const [applications, setApplications] = useState<ClientApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [sheetRequestId, setSheetRequestId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const pageSize = 50;
+  const userId = user?.id ?? "";
+
+  const applicationsQuery = useQuery({
+    queryKey: queryKeys.clientApplicationsPage(userId, 1, pageSize),
+    enabled: !!userId,
+    queryFn: async () => (await requestsApi.getMyRequests({ page: 1, pageSize })) as unknown as ClientApplication[],
+  });
 
   useEffect(() => {
-    if (!user) return;
-    async function loadRequests() {
-      try {
-        setLoading(true);
-        setLoadError(null);
-        const data = (await requestsApi.getMyRequests({ page: 1, pageSize })) as unknown as ClientApplication[];
-        setApplications(data ?? []);
-        setPage(1);
-        setHasMore((data?.length ?? 0) === pageSize);
-      } catch (e: unknown) {
-        const err = e as { message?: string };
-        setLoadError(err?.message || "Failed to load applications.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    void loadRequests();
-  }, [user]);
+    if (!applicationsQuery.data) return;
+    setApplications(applicationsQuery.data);
+    setPage(1);
+    setHasMore((applicationsQuery.data.length ?? 0) === pageSize);
+  }, [applicationsQuery.data, pageSize]);
 
   useEffect(() => {
     function onResize() {
@@ -507,18 +502,21 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
 
   const reload = useMemo(
     () => async () => {
-      const data = (await requestsApi.getMyRequests({ page: 1, pageSize })) as unknown as ClientApplication[];
-      setApplications(data ?? []);
-      setPage(1);
-      setHasMore((data?.length ?? 0) === pageSize);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.clientApplicationsPage(userId, 1, pageSize),
+        exact: true,
+      });
     },
-    []
+    [pageSize, queryClient, userId]
   );
 
   async function loadMore() {
-    if (!hasMore) return;
+    if (!hasMore || !userId) return;
     const nextPage = page + 1;
-    const data = (await requestsApi.getMyRequests({ page: nextPage, pageSize })) as unknown as ClientApplication[];
+    const data = await queryClient.fetchQuery({
+      queryKey: queryKeys.clientApplicationsPage(userId, nextPage, pageSize),
+      queryFn: async () => (await requestsApi.getMyRequests({ page: nextPage, pageSize })) as unknown as ClientApplication[],
+    });
     setApplications((prev) => [...prev, ...(data ?? [])]);
     setPage(nextPage);
     setHasMore((data?.length ?? 0) === pageSize);
@@ -551,7 +549,7 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
       ? applications
       : applications.filter((a) => a.status === selectedTab);
 
-  if (loading) {
+  if (applicationsQuery.isLoading && !applicationsQuery.data) {
     return (
       <div className="flex justify-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0d9b8a]" />
@@ -657,11 +655,15 @@ export function ApplicationsView({ requestId }: { requestId?: string }) {
         </div>
 
         {/* Error */}
-        {loadError && (
+        {applicationsQuery.error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 mb-4">
             <p className="text-sm font-semibold">Couldn&apos;t load applications</p>
-            <p className="text-xs mt-1">{loadError}</p>
-            <button type="button" onClick={() => window.location.reload()}
+            <p className="text-xs mt-1">
+              {applicationsQuery.error instanceof Error
+                ? applicationsQuery.error.message
+                : "Failed to load applications."}
+            </p>
+            <button type="button" onClick={() => void applicationsQuery.refetch()}
               className="mt-3 h-9 px-3 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-semibold hover:bg-red-50">
               Refresh
             </button>

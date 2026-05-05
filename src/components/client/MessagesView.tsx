@@ -6,6 +6,8 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { MessageBubble } from '../shared/MessageBubble';
 import type { ConversationListItem, Message } from '../../lib/types';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,7 @@ function initials(name: string): string {
 
 export function MessagesView() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const requestId = new URLSearchParams(location.search).get('requestId');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,9 +44,9 @@ export function MessagesView() {
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
+  const userId = user?.id ?? '';
 
   // Use container width (not window) so this view is responsive even inside a narrow column.
   useEffect(() => {
@@ -56,47 +59,47 @@ export function MessagesView() {
     return () => obs.disconnect();
   }, []);
 
-  // ── Load conversations ──
+  const conversationsQuery = useQuery({
+    queryKey: queryKeys.clientConversations(userId, requestId ?? undefined),
+    enabled: !!userId,
+    queryFn: async () => {
+      const data = (await messagesApi.getMyConversations()) as ConversationListItem[];
+      return data.filter(c => c.request_id !== null);
+    },
+  });
+
   useEffect(() => {
-    if (!user) return;
-    async function load() {
-      try {
-        setLoading(true);
-        const data = (await messagesApi.getMyConversations()) as ConversationListItem[];
-
-        // Filter out team channels / non-request based for client
-        const filtered = data.filter(c => c.request_id !== null);
-        setConversations(filtered);
-
-        if (filtered.length > 0) {
-          const match = requestId ? filtered.find(c => String(c.request_id) === requestId) : null;
-          setSelectedConvId(match?.id ?? filtered[0].id);
-          if (isMobile && (match || requestId)) setMobileView('chat');
-        }
-      } catch (err) {
-        console.error('[MessagesView] Failed to load conversations:', err);
-      } finally {
-        setLoading(false);
-      }
+    if (!conversationsQuery.data) return;
+    setConversations(conversationsQuery.data);
+    if (conversationsQuery.data.length > 0) {
+      const match = requestId ? conversationsQuery.data.find(c => String(c.request_id) === requestId) : null;
+      setSelectedConvId(match?.id ?? conversationsQuery.data[0].id);
+      if (isMobile && (match || requestId)) setMobileView('chat');
     }
-    void load();
-  }, [user, requestId]);
+  }, [conversationsQuery.data, isMobile, requestId]);
 
-  // ── Load messages for selected conversation ──
+  const messagesQuery = useQuery({
+    queryKey: queryKeys.messages(selectedConvId ?? ""),
+    enabled: !!selectedConvId,
+    queryFn: async () => (await messagesApi.getMessages(selectedConvId!, { limit: 50 })) as Message[],
+  });
+
+  useEffect(() => {
+    if (messagesQuery.data) setMessages(messagesQuery.data);
+  }, [messagesQuery.data]);
+
+  // ── Realtime message updates ──
   useEffect(() => {
     if (!selectedConvId) return;
     const convId = selectedConvId;
-    async function load() {
-      try {
-        const data = (await messagesApi.getMessages(convId, { limit: 50 })) as Message[];
-        setMessages(data);
-      } catch (err) {
-        console.error('[MessagesView] Failed to load messages:', err);
-      }
-    }
-    void load();
-
     const sub = messagesApi.subscribeToMessages(convId, (msg: Message) => {
+      queryClient.setQueryData(queryKeys.messages(convId), (prev: Message[] | undefined) => {
+        const base = prev ?? [];
+        if (base.some((m) => m.id === msg.id)) return base;
+        const next = [...base, msg];
+        next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+        return next;
+      });
       setMessages(prev => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         const last = prev[prev.length - 1];
@@ -110,7 +113,7 @@ export function MessagesView() {
     return () => {
       void supabase.removeChannel(sub);
     };
-  }, [selectedConvId]);
+  }, [queryClient, selectedConvId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -148,7 +151,7 @@ export function MessagesView() {
 
   const selectedConv = conversations.find(c => c.id === selectedConvId);
 
-  if (loading) {
+  if (conversationsQuery.isLoading && !conversationsQuery.data) {
     return (
       <div className="flex h-full w-full justify-center items-center bg-white">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0d9b8a]" />

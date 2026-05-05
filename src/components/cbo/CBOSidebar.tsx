@@ -10,7 +10,6 @@ interface CBOSidebarProps {
   onClose: () => void;
   membershipRole?: 'owner' | 'admin' | 'member' | null;
   unreadMessagesCount?: number | null;
-  hideTeamForStaff?: boolean;
 }
 
 export function CBOSidebar({
@@ -20,7 +19,6 @@ export function CBOSidebar({
   onClose,
   membershipRole,
   unreadMessagesCount,
-  hideTeamForStaff,
 }: CBOSidebarProps) {
   const isStaffMember = membershipRole === 'member';
   const isOwner = membershipRole === 'owner';
@@ -31,7 +29,6 @@ export function CBOSidebar({
         { id: 'overview', icon: LayoutDashboard, label: 'Dashboard', badge: null },
         { id: 'assigned', icon: Users, label: 'My Assigned Requests', badge: null },
         { id: 'messages', icon: MessageSquare, label: 'Messages', badge: messagesBadge },
-        ...(hideTeamForStaff ? [] : [{ id: 'team', icon: Users, label: 'Team', badge: null }]),
       ]
     : [
         { id: 'overview', icon: Home, label: 'Overview', badge: null },

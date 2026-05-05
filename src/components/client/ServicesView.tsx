@@ -16,6 +16,8 @@ import { usePublicServices } from "../../hooks/useServices";
 import { ApplicationFormSheet } from "./ApplicationFormSheet";
 import { useFavorites } from "../../api/favorites";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/queryKeys";
 
 function useDebounce<T>(value: T, delay = 300) {
   const [debounced, setDebounced] = useState(value);
@@ -214,27 +216,26 @@ export function ServicesView() {
     });
   }, [publicServicesQuery.data]);
 
+  const servicesMetaQuery = useQuery({
+    queryKey: queryKeys.clientServicesMeta(user?.id ?? ""),
+    enabled: !!user,
+    queryFn: async () => {
+      const [catsRes, boroughsRes] = await Promise.all([
+        supabase.from("service_categories").select("slug, label").order("label"),
+        supabase.from("boroughs").select("name").order("name"),
+      ]);
+      return {
+        categories: (catsRes.data || []).map((c: any) => ({ id: c.slug, label: c.label })),
+        boroughs: (boroughsRes.data || []).map((b: any) => b.name as string),
+      };
+    },
+  });
+
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("service_categories")
-      .select("slug, label")
-      .order("label")
-      .then(({ data }) => {
-        const mapped = (data || []).map((c: any) => ({
-          id: c.slug,
-          label: c.label,
-        }));
-        setCategories([{ id: "all", label: "All" }, ...mapped]);
-      });
-    supabase
-      .from("boroughs")
-      .select("name")
-      .order("name")
-      .then(({ data }) => {
-        setBoroughs((data || []).map((b: any) => b.name));
-      });
-  }, [user]);
+    if (!servicesMetaQuery.data) return;
+    setCategories([{ id: "all", label: "All" }, ...servicesMetaQuery.data.categories]);
+    setBoroughs(servicesMetaQuery.data.boroughs);
+  }, [servicesMetaQuery.data]);
 
   const filteredServices = services.filter((service) => {
     const matchesSearch =
