@@ -4,18 +4,24 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect, useState } from 'react';
 
-const ServicesView = lazy(() => import('./ServicesView').then(m => ({ default: m.ServicesView })));
-const ApplicationsView = lazy(() => import('./ApplicationsView').then(m => ({ default: m.ApplicationsView })));
-const MessagesView = lazy(() => import('./MessagesView').then(m => ({ default: m.MessagesView })));
-const CommunityView = lazy(() => import('./CommunityView').then(m => ({ default: m.CommunityView })));
-const ApplicationForm = lazy(() => import('./ApplicationForm').then(m => ({ default: m.ApplicationForm })));
-const ApplicationFormPage = lazy(() => import('../../pages/client/ApplicationFormPage').then(m => ({ default: m.ApplicationFormPage })));
-const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
-const EmergencyResourcesView = lazy(() => import('./EmergencyResourcesView').then(m => ({ default: m.EmergencyResourcesView })));
-const ContactSupportView = lazy(() => import('./ContactSupportView').then(m => ({ default: m.ContactSupportView })));
+const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
+  const component = (mod as any)[exportName] ?? (mod as any).default;
+  if (!component) throw new Error(`${source}: missing ${exportName} and default export.`);
+  return { default: component };
+};
+
+const ServicesView = lazy(() => import('./ServicesView').then(m => toLazyComponent(m, 'ServicesView', 'ServicesView')));
+const ApplicationsView = lazy(() => import('./ApplicationsView').then(m => toLazyComponent(m, 'ApplicationsView', 'ApplicationsView')));
+const MessagesView = lazy(() => import('./MessagesView').then(m => toLazyComponent(m, 'MessagesView', 'MessagesView')));
+const CommunityView = lazy(() => import('./CommunityView').then(m => toLazyComponent(m, 'CommunityView', 'CommunityView')));
+const ApplicationForm = lazy(() => import('./ApplicationForm').then(m => toLazyComponent(m, 'ApplicationForm', 'ApplicationForm')));
+const ApplicationFormPage = lazy(() => import('../../pages/client/ApplicationFormPage').then(m => toLazyComponent(m, 'ApplicationFormPage', 'ApplicationFormPage')));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => toLazyComponent(m, 'AccountSettingsView', 'AccountSettingsView')));
+const EmergencyResourcesView = lazy(() => import('./EmergencyResourcesView').then(m => toLazyComponent(m, 'EmergencyResourcesView', 'EmergencyResourcesView')));
+const ContactSupportView = lazy(() => import('./ContactSupportView').then(m => toLazyComponent(m, 'ContactSupportView', 'ContactSupportView')));
 
 const MapView = lazy(() =>
-  import('./MapView').then((m) => ({ default: m.MapView })),
+  import('./MapView').then((m) => toLazyComponent(m, 'MapView', 'MapView')),
 );
 
 export type ClientView =

@@ -9,20 +9,23 @@ import { messagesApi } from '../../api/messages';
 import { supabase } from '../../lib/supabase';
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 
-// const CBOOverview = lazy(() => import('./CBOOverview'));
-const ClientsView = lazy(() => import('./ClientsView').then(m => ({ default: m.ClientsView })));
-const ServicesView = lazy(() => import('./ServicesView').then(m => ({ default: m.ServicesView })));
-const CreateServicePage = lazy(() => import('./CreateServicePage').then(m => ({ default: m.CreateServicePage })));
-const ServiceDetailPage = lazy(() => import('./ServiceDetailPage').then(m => ({ default: m.ServiceDetailPage })));
-const MessagesView = lazy(() => import('./MessagesView').then(m => ({ default: m.MessagesView })));
-const InternalMessagingView = lazy(() => import('./InternalMessagingView').then(m => ({ default: m.InternalMessagingView })));
-const ReportsView = lazy(() => import('./ReportsView').then(m => ({ default: m.ReportsView })));
-const SettingsView = lazy(() => import('./SettingsView').then(m => ({ default: m.SettingsView })));
-const HelpSupportView = lazy(() => import('./HelpSupportView').then(m => ({ default: m.HelpSupportView })));
-const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
-import StaffOverviewView from '../staff/StaffOverviewView';
+const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
+  const component = (mod as any)[exportName] ?? (mod as any).default;
+  if (!component) throw new Error(`${source}: missing ${exportName} and default export.`);
+  return { default: component };
+};
 
-// const StaffOverviewView = lazy(() => import('../staff/StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
+const ClientsView = lazy(() => import('./ClientsView').then(m => toLazyComponent(m, 'ClientsView', 'ClientsView')));
+const ServicesView = lazy(() => import('./ServicesView').then(m => toLazyComponent(m, 'ServicesView', 'ServicesView')));
+const CreateServicePage = lazy(() => import('./CreateServicePage').then(m => toLazyComponent(m, 'CreateServicePage', 'CreateServicePage')));
+const ServiceDetailPage = lazy(() => import('./ServiceDetailPage').then(m => toLazyComponent(m, 'ServiceDetailPage', 'ServiceDetailPage')));
+const MessagesView = lazy(() => import('./MessagesView').then(m => toLazyComponent(m, 'MessagesView', 'MessagesView')));
+const InternalMessagingView = lazy(() => import('./InternalMessagingView').then(m => toLazyComponent(m, 'InternalMessagingView', 'InternalMessagingView')));
+const ReportsView = lazy(() => import('./ReportsView').then(m => toLazyComponent(m, 'ReportsView', 'ReportsView')));
+const SettingsView = lazy(() => import('./SettingsView').then(m => toLazyComponent(m, 'SettingsView', 'SettingsView')));
+const HelpSupportView = lazy(() => import('./HelpSupportView').then(m => toLazyComponent(m, 'HelpSupportView', 'HelpSupportView')));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => toLazyComponent(m, 'AccountSettingsView', 'AccountSettingsView')));
+import StaffOverviewView from '../staff/StaffOverviewView';
 
 async function invokeSetupOrganization(input: { orgName: string; borough: string }, accessToken: string) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -357,7 +360,7 @@ export function CBODashboard() {
         <Route path="services" element={<ServicesView />} />
         <Route path="services/:serviceId" element={<ServiceDetailPage />} />
         <Route path="services/new" element={<CreateServicePage />} />
-        <Route path="reports" element={<ReportsView />} />
+        <Route path="reports" element={<ReportsView orgId={orgId} />} />
         <Route
           path="messages"
           element={membershipRole === 'owner' ? <Navigate to="/cbo/team" replace /> : <MessagesView />}

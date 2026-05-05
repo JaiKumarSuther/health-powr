@@ -20,19 +20,23 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { OrgDetailsPage } from './OrgDetailsPage';
 
+const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
+  const component = (mod as any)[exportName] ?? (mod as any).default;
+  if (!component) throw new Error(`${source}: missing ${exportName} and default export.`);
+  return { default: component };
+};
+
 const AdminOverviewView = lazy(() =>
-  import('./AdminOverviewView').then((m) => ({ default: m.AdminOverviewView })),
+  import('./AdminOverviewView').then((m) => toLazyComponent(m, 'AdminOverviewView', 'AdminOverviewView')),
 );
 const ReportsView = lazy(() =>
-  import('./ReportsView').then((m) => ({ default: m.ReportsView })),
+  import('./ReportsView').then((m) => toLazyComponent(m, 'ReportsView', 'ReportsView')),
 );
 const AdminAnnouncementsView = lazy(() =>
-  import('./AdminAnnouncementsView').then((m) => ({
-    default: m.AdminAnnouncementsView,
-  })),
+  import('./AdminAnnouncementsView').then((m) => toLazyComponent(m, 'AdminAnnouncementsView', 'AdminAnnouncementsView')),
 );
 const AdminSettingsView = lazy(() =>
-  import('./AdminSettingsView').then((m) => ({ default: m.AdminSettingsView })),
+  import('./AdminSettingsView').then((m) => toLazyComponent(m, 'AdminSettingsView', 'AdminSettingsView')),
 );
 
 type AdminTab =

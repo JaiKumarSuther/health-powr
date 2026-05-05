@@ -6,11 +6,17 @@ import { messagesApi } from '../../api/messages';
 import { CBOHeader } from '../cbo/CBOHeader';
 import { CBOSidebar } from '../cbo/CBOSidebar';
 
-const ClientsView = lazy(() => import('../cbo/ClientsView').then(m => ({ default: m.ClientsView })));
-const HelpSupportView = lazy(() => import('../cbo/HelpSupportView').then(m => ({ default: m.HelpSupportView })));
-const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
-const StaffMessagesPage = lazy(() => import('../../pages/staff/StaffMessagesPage').then(m => ({ default: m.StaffMessagesPage })));
-const StaffOverviewView = lazy(() => import('./StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
+const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
+  const component = (mod as any)[exportName] ?? (mod as any).default;
+  if (!component) throw new Error(`${source}: missing ${exportName} and default export.`);
+  return { default: component };
+};
+
+const ClientsView = lazy(() => import('../cbo/ClientsView').then(m => toLazyComponent(m, 'ClientsView', 'ClientsView')));
+const HelpSupportView = lazy(() => import('../cbo/HelpSupportView').then(m => toLazyComponent(m, 'HelpSupportView', 'HelpSupportView')));
+const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => toLazyComponent(m, 'AccountSettingsView', 'AccountSettingsView')));
+const StaffMessagesPage = lazy(() => import('../../pages/staff/StaffMessagesPage').then(m => toLazyComponent(m, 'StaffMessagesPage', 'StaffMessagesPage')));
+const StaffOverviewView = lazy(() => import('./StaffOverviewView').then(m => toLazyComponent(m, 'StaffOverviewView', 'StaffOverviewView')));
 
 type StaffView = 'overview' | 'assigned' | 'messages' | 'team' | 'help' | 'account';
 const ALL_VIEWS: StaffView[] = ['overview', 'assigned', 'messages', 'team', 'help', 'account'];

@@ -6,34 +6,30 @@ import { RequireAuth } from "./routes/RequireAuth";
 import { isSupabaseConfigured } from "./lib/supabase";
 import { ConfigurationError } from "./components/shared/ConfigurationError";
 
-const LandingPage = lazy(() => import("./components/LandingPage").then(m => ({ default: m.LandingPage })));
-const ClientDashboard = lazy(() => import("./components/client/ClientDashboard").then(m => ({ default: m.ClientDashboard })));
-const CBODashboard = lazy(() => import("./components/cbo/CBODashboard").then(m => ({ default: m.CBODashboard })));
-const StaffDashboard = lazy(() => import("./components/staff/StaffDashboard").then(m => ({ default: m.StaffDashboard })));
-const AdminDashboard = lazy(() => import("./components/admin/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
-const AuthPage = lazy(() => import("./pages/AuthPage").then(m => ({ default: m.AuthPage })));
+const toLazyComponent = <T extends Record<string, unknown>>(mod: T, exportName: string, source: string) => {
+  const component = (mod as any)[exportName] ?? (mod as any).default;
+  if (!component) {
+    throw new Error(`${source}: missing ${exportName} and default export.`);
+  }
+  return { default: component };
+};
+
+const LandingPage = lazy(() => import("./components/LandingPage").then(m => toLazyComponent(m, "LandingPage", "LandingPage")));
+const ClientDashboard = lazy(() => import("./components/client/ClientDashboard").then(m => toLazyComponent(m, "ClientDashboard", "ClientDashboard")));
+const CBODashboard = lazy(() => import("./components/cbo/CBODashboard").then(m => toLazyComponent(m, "CBODashboard", "CBODashboard")));
+const StaffDashboard = lazy(() => import("./components/staff/StaffDashboard").then(m => toLazyComponent(m, "StaffDashboard", "StaffDashboard")));
+const AdminDashboard = lazy(() => import("./components/admin/AdminDashboard").then(m => toLazyComponent(m, "AdminDashboard", "AdminDashboard")));
+const AuthPage = lazy(() => import("./pages/AuthPage").then(m => toLazyComponent(m, "AuthPage", "AuthPage")));
 
 // AFTER (safe — throws clearly if neither export exists)
 const AuthCallbackPage = lazy(() =>
-  import("./pages/AuthCallbackPage").then(m => {
-    const C = (m as any).AuthCallbackPage ?? m.default;
-    if (!C) throw new Error("AuthCallbackPage: no default or named export found");
-    return { default: C };
-  })
+  import("./pages/AuthCallbackPage").then(m => toLazyComponent(m, "AuthCallbackPage", "AuthCallbackPage"))
 );
 const AdminLoginPage = lazy(() =>
-  import("./pages/AdminLoginPage").then(m => {
-    const C = (m as any).AdminLoginPage ?? m.default;
-    if (!C) throw new Error("AdminLoginPage: no default or named export found");
-    return { default: C };
-  })
+  import("./pages/AdminLoginPage").then(m => toLazyComponent(m, "AdminLoginPage", "AdminLoginPage"))
 );
 const AdminPasskeyPage = lazy(() =>
-  import("./pages/AdminPasskeyPage").then(m => {
-    const C = (m as any).AdminPasskeyPage ?? m.default;
-    if (!C) throw new Error("AdminPasskeyPage: no default or named export found");
-    return { default: C };
-  })
+  import("./pages/AdminPasskeyPage").then(m => toLazyComponent(m, "AdminPasskeyPage", "AdminPasskeyPage"))
 );
 
 const Spinner = () => (

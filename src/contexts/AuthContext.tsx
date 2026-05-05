@@ -7,12 +7,14 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { User, UserRole } from "../types/user";
 import { supabase } from "../lib/supabase";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { authApi } from "../api/auth";
 import { orgsApi } from "../api/organizations";
 import { withTimeout } from "../lib/withTimeout";
+import { queryKeys } from "../lib/queryKeys";
 
 type Profile = {
   id: string;
@@ -50,6 +52,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -163,6 +166,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return nextUser;
     });
+
+    if (profileData?.id) {
+      queryClient.setQueryData(queryKeys.profile(profileData.id), profileData);
+    }
+    queryClient.setQueryData(queryKeys.user(), nextUser);
   };
 
   const mapSupabaseUserToAppUser = useMemo(() => {

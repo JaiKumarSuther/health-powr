@@ -10,7 +10,15 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { RequestDetailView } from "./RequestDetailView";
 import { getUrgencyColor, getUrgencyLabel } from "../../api/requests";
 
-export function ClientsView({ staffMode = false }: { staffMode?: boolean }) {
+export function ClientsView({
+  staffMode = false,
+  orgId: orgIdProp,
+  membershipRole: membershipRoleProp,
+}: {
+  staffMode?: boolean;
+  orgId: string | null;
+  membershipRole: "owner" | "admin" | "member" | null;
+}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { requestId } = useParams<{ requestId?: string }>();
@@ -21,10 +29,10 @@ export function ClientsView({ staffMode = false }: { staffMode?: boolean }) {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(orgIdProp);
   const [membershipRole, setMembershipRole] = useState<
     "owner" | "admin" | "member" | null
-  >(null);
+  >(membershipRoleProp);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailRequest, setDetailRequest] = useState<any | null>(null);
@@ -41,20 +49,65 @@ export function ClientsView({ staffMode = false }: { staffMode?: boolean }) {
   }, [toast]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgIdProp) return;
     async function loadRequests() {
       try {
         setLoading(true);
         setLoadError(null);
-        const ctx = await requestsApi.getMyOrgMembership();
-        const [members, data] = await Promise.all([
-          staffMode ? Promise.resolve([]) : requestsApi.getOrgTeamMembers(),
-          requestsApi.getOrgRequests(),
+        const [membersResult, requestsResult] = await Promise.all([
+          staffMode
+            ? Promise.resolve({ data: [] })
+            : supabase
+                .from("organization_members")
+                .select(
+                  `
+                  profile_id,
+                  role,
+                  profile:profiles!profile_id(id, full_name, email)
+                `,
+                )
+                .eq("organization_id", orgIdProp)
+                .in("role", ["member", "admin"])
+                .order("joined_at", { ascending: true }),
+          supabase
+            .from("service_requests")
+            .select(
+              `
+              *,
+              assigned_staff:profiles!assigned_staff_id(
+                id, full_name, email
+              ),
+              member:profiles!member_id(
+                id, full_name, email, phone, borough
+              ),
+              notes:request_notes(
+                id, content, is_internal, created_at,
+                author_id,
+                author:profiles(full_name)
+              ),
+              status_history:request_status_history(
+                id, old_status, new_status, note, created_at,
+                changed_by,
+                changed_by_profile:profiles!changed_by(full_name)
+              )
+            `,
+            )
+            .eq("assigned_org_id", orgIdProp)
+            .order("created_at", { ascending: false }),
         ]);
-        setOrgId(ctx.orgId);
-        setMembershipRole(ctx.role);
-        setTeamMembers(members);
-        setRequests(data);
+        if (membersResult.error) throw membersResult.error;
+        if (requestsResult.error) throw requestsResult.error;
+        setOrgId(orgIdProp);
+        setMembershipRole(membershipRoleProp);
+        setTeamMembers(
+          (membersResult.data ?? []).map((m: any) => ({
+            profile_id: m.profile_id,
+            role: m.role,
+            full_name: m.profile?.full_name ?? "Staff",
+            email: m.profile?.email ?? "",
+          })),
+        );
+        setRequests(requestsResult.data ?? []);
       } catch (e: any) {
         setLoadError(e?.message || "Failed to load requests.");
       } finally {
@@ -62,18 +115,61 @@ export function ClientsView({ staffMode = false }: { staffMode?: boolean }) {
       }
     }
     void loadRequests();
-  }, [user]);
+  }, [user, orgIdProp, membershipRoleProp, staffMode]);
 
   const reload = useMemo(() => {
     return async () => {
-      const [members, data] = await Promise.all([
-        staffMode ? Promise.resolve([]) : requestsApi.getOrgTeamMembers(),
-        requestsApi.getOrgRequests(),
+      if (!orgIdProp) return;
+      const [membersResult, requestsResult] = await Promise.all([
+        staffMode
+          ? Promise.resolve({ data: [] })
+          : supabase
+              .from("organization_members")
+              .select(
+                `
+                profile_id,
+                role,
+                profile:profiles!profile_id(id, full_name, email)
+              `,
+              )
+              .eq("organization_id", orgIdProp)
+              .in("role", ["member", "admin"])
+              .order("joined_at", { ascending: true }),
+        supabase
+          .from("service_requests")
+          .select(
+            `
+            *,
+            assigned_staff:profiles!assigned_staff_id(id, full_name, email),
+            member:profiles!member_id(id, full_name, email, phone, borough),
+            notes:request_notes(
+              id, content, is_internal, created_at,
+              author_id,
+              author:profiles(full_name)
+            ),
+            status_history:request_status_history(
+              id, old_status, new_status, note, created_at,
+              changed_by,
+              changed_by_profile:profiles!changed_by(full_name)
+            )
+          `,
+          )
+          .eq("assigned_org_id", orgIdProp)
+          .order("created_at", { ascending: false }),
       ]);
-      setTeamMembers(members);
-      setRequests(data);
+      if (membersResult.error) throw membersResult.error;
+      if (requestsResult.error) throw requestsResult.error;
+      setTeamMembers(
+        (membersResult.data ?? []).map((m: any) => ({
+          profile_id: m.profile_id,
+          role: m.role,
+          full_name: m.profile?.full_name ?? "Staff",
+          email: m.profile?.email ?? "",
+        })),
+      );
+      setRequests(requestsResult.data ?? []);
     };
-  }, [staffMode]);
+  }, [staffMode, orgIdProp]);
 
   useEffect(() => {
     if (!user || !orgId) return;

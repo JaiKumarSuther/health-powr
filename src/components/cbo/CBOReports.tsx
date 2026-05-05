@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { requestsApi } from '../../api/requests';
-import { useAuth } from '../../contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { queryKeys } from '../../lib/queryKeys';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,25 +152,29 @@ async function fetchReportsData(
   const prevFromISO = prevFrom.toISOString();
   const prevToISO = prevTo.toISOString();
 
-  // Fetch current + previous period requests in parallel
-  const [{ data: current }, { data: previous }, teamMembers] = await Promise.all([
+  const [{ data: allRequests }] = await Promise.all([
     supabase
       .from('service_requests')
-      .select('id, status, category, borough, created_at, assigned_staff_id, member_id')
-      .eq('assigned_org_id', orgId)
-      .gte('created_at', fromISO)
-      .lte('created_at', toISO),
-    supabase
-      .from('service_requests')
-      .select('id, member_id, status, category, borough, created_at')
+      .select('id, status, category, borough, created_at, assigned_staff_id, member_id, assigned_staff:profiles!assigned_staff_id(full_name, email)')
       .eq('assigned_org_id', orgId)
       .gte('created_at', prevFromISO)
-      .lte('created_at', prevToISO),
-    requestsApi.getOrgTeamMembers(),
+      .lte('created_at', toISO),
   ]);
 
-  const curr = current ?? [];
-  const prev = previous ?? [];
+  const rows = allRequests ?? [];
+  const curr = rows.filter(r => new Date(r.created_at) >= from && new Date(r.created_at) <= to);
+  const prev = rows.filter(r => new Date(r.created_at) >= prevFrom && new Date(r.created_at) < prevTo);
+  const teamMemberMap = new Map<string, { profile_id: string; full_name: string; role: string }>();
+  for (const r of curr as any[]) {
+    if (!r.assigned_staff_id) continue;
+    if (teamMemberMap.has(r.assigned_staff_id)) continue;
+    teamMemberMap.set(r.assigned_staff_id, {
+      profile_id: r.assigned_staff_id,
+      full_name: r.assigned_staff?.full_name ?? r.assigned_staff?.email ?? 'Staff',
+      role: 'member',
+    });
+  }
+  const teamMembers = Array.from(teamMemberMap.values());
 
   // Metrics
   const resolved = curr.filter(r => r.status === 'closed' || r.status === 'responded').length;
@@ -427,30 +431,23 @@ function PeriodSelector({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function CBOReports() {
-  const { user } = useAuth();
-  const [loading, setLoading]   = useState(true);
-  const [orgId, setOrgId]       = useState<string | null>(null);
+export function CBOReports({
+  orgId,
+}: {
+  orgId: string | null;
+}) {
+  const queryClient = useQueryClient();
   const [period, setPeriod]     = useState<Period>('week');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo]     = useState('');
-  const [data, setData]         = useState<ReportsData | null>(null);
 
-  // Load org ID once
-  useEffect(() => {
-    if (!user) return;
-    requestsApi.getMyOrgId().then(id => setOrgId(id)).catch(console.error);
-  }, [user]);
-
-  // Load report data whenever period or org changes
-  useEffect(() => {
-    if (!orgId) return;
-    setLoading(true);
-    fetchReportsData(orgId, period, customFrom || undefined, customTo || undefined)
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [orgId, period, customFrom, customTo]);
+  const reportsQuery = useQuery({
+    queryKey: orgId
+      ? queryKeys.cboReports(orgId, period, customFrom || undefined, customTo || undefined)
+      : ['cbo_reports', 'no_org'],
+    enabled: !!orgId,
+    queryFn: async () => fetchReportsData(orgId!, period, customFrom || undefined, customTo || undefined),
+  });
 
   // Real-time: refresh on any request change
   useEffect(() => {
@@ -461,21 +458,20 @@ export function CBOReports() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'service_requests', filter: `assigned_org_id=eq.${orgId}` },
         () => {
-          if (!orgId) return;
-          fetchReportsData(orgId, period, customFrom || undefined, customTo || undefined)
-            .then(setData)
-            .catch(console.error);
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.cboReports(orgId, period, customFrom || undefined, customTo || undefined),
+          });
         },
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [orgId, period, customFrom, customTo]);
+  }, [orgId, period, customFrom, customTo, queryClient]);
 
   const handleApplyCustom = () => {
     if (customFrom && customTo) setPeriod('custom');
   };
 
-  const { metrics, byCategory, byBorough, volumePoints, teamPerf } = data ?? {
+  const { metrics, byCategory, byBorough, volumePoints, teamPerf } = reportsQuery.data ?? {
     metrics:      { totalRequests: 0, resolutionRate: 0, avgResponseHours: 0, clientsConnected: 0, prevTotalRequests: 0, prevResolutionRate: 0, prevClientsConnected: 0 },
     byCategory:   [],
     byBorough:    [],
@@ -487,7 +483,7 @@ export function CBOReports() {
 
   const sparkData = volumePoints.map(p => p.current);
 
-  if (loading) {
+  if (reportsQuery.isLoading) {
     return (
       <div className="py-20 text-center text-gray-500">Loading reports...</div>
     );
