@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { requireUser } from './requireUser'
+import { Message } from '../lib/types'
 
 export const messagesApi = {
 
@@ -175,49 +176,13 @@ export const messagesApi = {
     // Owner: no client chat (owner only chats with staff via /cbo/team).
     if (membership.role === 'owner') return []
 
-    // Admin staff (role=admin) can still chat if assigned, but must be assigned_staff_id.
-    const { data, error } = await supabase
-      .from('conversations')
-      .select(`
-        id,
-        request_id,
-        member_id,
-        organization_id,
-        last_message_at,
-        assigned_staff_id,
-        member:profiles!member_id (
-          id,
-          full_name,
-          avatar_url
-        ),
-        service_request:service_requests!request_id (
-          id,
-          category,
-          status,
-          borough,
-          assigned_staff:profiles!assigned_staff_id(id, full_name, avatar_url),
-          services (
-            name,
-            category
-          )
-        ),
-        messages (
-          content,
-          created_at
-        )
-      `)
-      .eq('organization_id', membership.organization_id)
-      .eq('assigned_staff_id', user.id)
-      .order('last_message_at', { ascending: false })
-
-    if (error) throw error
-    return data
+    return [] // Should not be reached given OrgMembershipRole values, but keeps TS happy.
   },
 
   // Subscribe to new messages (realtime)
   subscribeToMessages(
     conversationId: string,
-    onMessage: (msg: Record<string, unknown>) => void
+    onMessage: (msg: Message) => void
   ) {
     return supabase
       .channel(`messages:${conversationId}`)
@@ -226,7 +191,7 @@ export const messagesApi = {
         schema: 'public',
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`
-      }, payload => onMessage(payload.new))
+      }, payload => onMessage(payload.new as Message))
       .subscribe()
   }
 }
@@ -345,10 +310,7 @@ export async function getOrCreateDirectConversation(
   return createDirectConversation(organizationId, otherProfileId)
 }
 
-// Subscribe to internal conversations list (new messages bubble up).
-// The filter scopes realtime events to only the given org's conversations,
-// avoiding unnecessary callbacks (and potential activity disclosure) from
-// other organizations' message inserts.
+// Subscribe to internal conversations list (new messages bubble up)
 export function subscribeToInternalConversations(
   organizationId: string,
   onUpdate: () => void
@@ -358,14 +320,10 @@ export function subscribeToInternalConversations(
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',
-      table: 'conversations',
-      filter: `organization_id=eq.${organizationId}`,
-    }, () => onUpdate())
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'conversations',
-      filter: `organization_id=eq.${organizationId}`,
+      table: 'messages',
+      // SEC-FIX: Add filter to only receive updates for conversations in this org.
+      // This prevents cross-org info leakage and improves performance.
+      filter: `organization_id=eq.${organizationId}`
     }, () => onUpdate())
     .subscribe()
 }

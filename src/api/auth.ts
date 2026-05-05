@@ -120,6 +120,7 @@ export const authApi = {
     userId: string,
     opts?: { signal?: AbortSignal },
   ): Promise<Profile | null> {
+
     let query = supabase
       .from("profiles")
       .select("id, email, role, full_name, avatar_url, phone, borough")

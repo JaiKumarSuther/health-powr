@@ -44,7 +44,6 @@ export function MessagesView() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
-  const [sendError, setSendError] = useState<string | null>(null);
 
   // Use container width (not window) so this view is responsive even inside a narrow column.
   useEffect(() => {
@@ -64,7 +63,7 @@ export function MessagesView() {
       try {
         setLoading(true);
         const data = (await messagesApi.getMyConversations()) as ConversationListItem[];
-        
+
         // Filter out team channels / non-request based for client
         const filtered = data.filter(c => c.request_id !== null);
         setConversations(filtered);
@@ -97,14 +96,13 @@ export function MessagesView() {
     }
     void load();
 
-    const sub = messagesApi.subscribeToMessages(convId, (msg: any) => {
+    const sub = messagesApi.subscribeToMessages(convId, (msg: Message) => {
       setMessages(prev => {
-        const cast = msg as Message;
-        if (prev.some((m) => m.id === cast.id)) return prev;
+        if (prev.some((m) => m.id === msg.id)) return prev;
         const last = prev[prev.length - 1];
-        if (!last) return [cast];
-        if (+new Date(cast.created_at) >= +new Date(last.created_at)) return [...prev, cast];
-        const next = [...prev, cast];
+        if (!last) return [msg];
+        if (+new Date(msg.created_at) >= +new Date(last.created_at)) return [...prev, msg];
+        const next = [...prev, msg];
         next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
         return next;
       });
@@ -122,10 +120,11 @@ export function MessagesView() {
   async function sendMessage() {
     if (!newMessage.trim() || !selectedConvId) return;
     const content = newMessage.trim();
-    setSendError(null);
-    setNewMessage('');
+    // SEC-AUDIT: Do NOT clear before send. If it fails, user loses their input.
+    // setNewMessage(''); 
     try {
       const sent = (await messagesApi.send(selectedConvId, content)) as Message;
+      setNewMessage(''); // Clear only on success
       setMessages(prev => {
         const next = [...prev.filter(m => m.id !== sent.id), sent];
         next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
@@ -133,9 +132,7 @@ export function MessagesView() {
       });
     } catch (err) {
       console.error('[MessagesView] Failed to send message:', err);
-      // Restore the unsent message so the user can retry without losing their text.
-      setNewMessage(content);
-      setSendError('Failed to send message. Please try again.');
+      // Optional: show toast or keep message in input
     }
   }
 
@@ -147,7 +144,7 @@ export function MessagesView() {
       const haystack = `${staffName} ${orgName}`.toLowerCase();
       return haystack.includes(searchTerm.toLowerCase());
     }),
-  [conversations, searchTerm]);
+    [conversations, searchTerm]);
 
   const selectedConv = conversations.find(c => c.id === selectedConvId);
 
@@ -204,9 +201,8 @@ export function MessagesView() {
                   setSelectedConvId(conv.id);
                   if (isMobile) setMobileView('chat');
                 }}
-                className={`flex items-start gap-3 px-4 py-4 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${
-                  isActive ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
-                }`}
+                className={`flex items-start gap-3 px-4 py-4 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${isActive ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
+                  }`}
               >
                 <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {avatarUrl ? (
@@ -297,27 +293,21 @@ export function MessagesView() {
             </div>
 
             {/* Input */}
-            <footer className="px-4 py-4 bg-white border-t border-[#e8f0ee] flex-shrink-0">
-              {sendError && (
-                <p className="text-[12px] text-red-600 mb-2">{sendError}</p>
-              )}
-              <div className="flex items-center gap-3">
-                <input
-                  value={newMessage}
-                  onChange={e => { setNewMessage(e.target.value); setSendError(null); }}
-                  onKeyDown={e => { if (e.key === 'Enter') void sendMessage(); }}
-                  placeholder="Type your message..."
-                  className="flex-1 px-4 py-3 border border-[#e8f0ee] rounded-xl text-[14px] outline-none focus:border-[#0d9b8a] bg-[#f6faf8] focus:bg-white transition-all text-[#0f1f2e] placeholder-[#7a9e99]"
-                />
-                <button
-                  onClick={() => void sendMessage()}
-                  disabled={!newMessage.trim()}
-                  aria-label="Send message"
-                  className="w-11 h-11 rounded-xl bg-[#0d9b8a] flex items-center justify-center hover:bg-[#0b8a7a] transition-colors disabled:opacity-40 flex-shrink-0 border-none cursor-pointer"
-                >
-                  <Send className="w-5 h-5 text-white" />
-                </button>
-              </div>
+            <footer className="px-4 py-4 bg-white border-t border-[#e8f0ee] flex items-center gap-3 flex-shrink-0">
+              <input
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void sendMessage(); }}
+                placeholder="Type your message..."
+                className="flex-1 px-4 py-3 border border-[#e8f0ee] rounded-xl text-[14px] outline-none focus:border-[#0d9b8a] bg-[#f6faf8] focus:bg-white transition-all text-[#0f1f2e] placeholder-[#7a9e99]"
+              />
+              <button
+                onClick={() => void sendMessage()}
+                disabled={!newMessage.trim()}
+                className="w-11 h-11 rounded-xl bg-[#0d9b8a] flex items-center justify-center hover:bg-[#0b8a7a] transition-colors disabled:opacity-40 flex-shrink-0 border-none cursor-pointer"
+              >
+                <Send className="w-5 h-5 text-white" />
+              </button>
             </footer>
           </>
         ) : (

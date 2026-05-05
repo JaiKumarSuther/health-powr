@@ -11,6 +11,7 @@ export function NavBar({
   onJoin: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,6 +29,14 @@ export function NavBar({
   };
 
   useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -37,7 +46,13 @@ export function NavBar({
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
+    <header
+      className={`fixed left-0 right-0 top-0 z-50 transition-all duration-300 ${
+        scrolled || open
+          ? "border-b border-gray-100 bg-white/80 backdrop-blur-md shadow-sm"
+          : "border-b border-transparent bg-white"
+      }`}
+    >
       <div id="top" />
       <div className="mx-auto flex w-full max-w-[1560px] items-center justify-between gap-4 px-4 py-4 md:px-8">
         <Link to="/" className="flex items-center gap-2.5">
@@ -69,6 +84,12 @@ export function NavBar({
             onClick={(e) => handleScrollTo(e, "mission")}
           >
             Mission
+          </a>
+          <a
+            className="hover:text-teal-600"
+            href="mailto:mardoche@healthpowr.com"
+          >
+            Contact
           </a>
         </nav>
 
@@ -131,6 +152,12 @@ export function NavBar({
                 onClick={(e) => handleScrollTo(e, "mission")}
               >
                 Mission
+              </a>
+              <a
+                className="rounded-xl px-3 py-3 hover:bg-teal-50 hover:text-teal-800"
+                href="mailto:mardoche@healthpowr.com"
+              >
+                Contact
               </a>
               <div className="pt-2">
                 <button

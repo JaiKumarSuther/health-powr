@@ -36,7 +36,14 @@ export default function AdminLoginPage() {
       await signIn({ email: email.trim(), password });
       // Do NOT navigate immediately; wait for AuthContext to confirm DB role.
       setIsWaitingForRole(true);
+
+      // SEC-AUDIT: If role isn't resolved as admin, we should eventually time out
+      // or check the profile here to reset the waiting state.
+      setTimeout(() => {
+        setIsWaitingForRole(false);
+      }, 5000);
     } catch (err) {
+      setIsWaitingForRole(false);
       setError(err instanceof Error ? err.message : 'Sign in failed.');
     }
   };

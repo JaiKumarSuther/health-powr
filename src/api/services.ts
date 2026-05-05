@@ -65,10 +65,10 @@ export async function getPublicServices(filters?: {
   }
 
   if (filters?.searchText) {
-    // Use individual .ilike() calls instead of a raw .or() string to avoid
-    // special characters in the search term corrupting the PostgREST filter.
-    const term = `%${filters.searchText}%`;
-    query = query.or(`name.ilike.${term},description.ilike.${term}`);
+    // Search in name or description
+    // SEC-FIX: Escape special characters in PostgREST filter string to prevent injection
+    const escapedText = filters.searchText.replace(/[()\\,.]/g, '\\$&');
+    query = query.or(`name.ilike.%${escapedText}%,description.ilike.%${escapedText}%`);
   }
 
   if (filters?.borough) {

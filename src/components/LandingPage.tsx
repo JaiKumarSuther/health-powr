@@ -73,7 +73,7 @@ export function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-slate-700">
+    <div className="min-h-screen bg-white text-slate-700">
       <NavBar
         onSignIn={() => openAuth("community_member", "signin")}
         onJoin={() => openAuth("community_member", "signup")}

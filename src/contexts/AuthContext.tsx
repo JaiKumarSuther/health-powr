@@ -11,8 +11,8 @@ import type { User, UserRole } from "../types/user";
 import { supabase } from "../lib/supabase";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { authApi } from "../api/auth";
+import { orgsApi } from "../api/organizations";
 import { withTimeout } from "../lib/withTimeout";
-import { invokeSetupOrganization } from "../lib/setupOrganization";
 
 type Profile = {
   id: string;
@@ -61,10 +61,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const orgSetupAttempted = useRef(false);
   const didBootstrapOrgForUserRef = useRef<string | null>(null);
   const bootstrapInFlightRef = useRef(false);
-  // Timer ref for the background profile-retry so it can be cancelled on unmount.
-  const pendingRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearAuthError = () => setAuthError(null);
+
+  const invokeSetupOrganization = async () => {
+    try {
+      const data = await orgsApi.setup();
+      if (data?.success) {
+        // Refresh profile to get the new organization context
+        await refreshProfile();
+      }
+    } catch (err) {
+      console.error('[Auth] Organization setup failed:', err);
+    }
+  };
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -97,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       bootstrapInFlightRef.current = true;
       orgSetupAttempted.current = true;
       console.log('[Bootstrap] Starting org setup for user:', input.userId, 'org:', orgName);
-      await invokeSetupOrganization(orgName, borough);
+      await invokeSetupOrganization();
       // Only mark as done after a successful creation so a transient failure
       // does not permanently block the org from being created.
       didBootstrapOrgForUserRef.current = input.userId;
@@ -249,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const membershipPromise = (mapped.role === 'organization')
         ? withTimeout(
-            (signal) => supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).abortSignal(signal).maybeSingle(),
+            async (signal) => await supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).abortSignal(signal).maybeSingle(),
             5000
           )
         : Promise.resolve({ data: null, error: null });
@@ -274,29 +284,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsResolvingRole(false);
         setIsLoading(false);
 
-        // Background retry: attempt once more after 5 seconds.
-        // Store the timer ID so it can be cancelled if the component unmounts
-        // before the callback fires, preventing state updates on unmounted trees.
-        const retryTimer = setTimeout(async () => {
+        // Background retry: attempt once more after 5 seconds
+        setTimeout(async () => {
           if (!isMounted()) return;
           const retried = await authApi.fetchProfile(supaUser.id);
           if (retried && isMounted()) {
             applyResolvedIdentity(mapped, retried);
           }
         }, 5000);
-        // Expose the timer for cleanup via a module-level variable so the
-        // outer useEffect cleanup function can clear it.
-        pendingRetryTimerRef.current = retryTimer;
         return;
       }
 
       applyResolvedIdentity(mapped, profileData);
 
+      // SEC-AUDIT: Do NOT sync role to user_metadata. user_metadata is client-writable
+      // and trusting it in RLS (as migration 016 did) is a security risk.
+      // Roles should be managed via app_metadata (server-side) or the profiles table.
+      /*
       if (profileData.role && mapped.role !== profileData.role) {
         supabase.auth.updateUser({ data: { role: profileData.role } }).then(({ error }) => {
           if (error) console.error('[Auth] Failed to sync metadata role:', error.message)
         })
       }
+      */
 
       const resolvedRole = (profileData.role as UserRole) ?? mapped.role;
       if (resolvedRole === 'organization') {
@@ -468,7 +478,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 3. If organization role, create the organization now via edge function
       if (role === "organization" && organization) {
         try {
-          await invokeSetupOrganization(organization, borough || "Manhattan");
+          await invokeSetupOrganization();
         } catch (e: unknown) {
           // Non-blocking — avoid logging user-provided org details.
           console.error("[Signup] Org setup failed.", e);

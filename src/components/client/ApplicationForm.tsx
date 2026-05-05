@@ -204,6 +204,9 @@ export function ApplicationForm({ serviceName, organization, onSubmit, onSave, o
 
   const handleSave = async () => {
     setSaveStatus('saving');
+    // SEC-AUDIT: This is currently a stub. In a real app, this should save to a 
+    // "draft_applications" table or persistent user state.
+    console.warn("[ApplicationForm] Save Draft is not yet fully implemented on the server.");
     // Simulate save
     await new Promise(resolve => setTimeout(resolve, 1000));
     setSaveStatus('saved');
@@ -399,16 +402,24 @@ export function ApplicationForm({ serviceName, organization, onSubmit, onSave, o
 
             {/* Progress Summary */}
             <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                <span>Progress</span>
-                <span>{Math.round(((currentStep + 1) / steps.length) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-teal-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-                />
-              </div>
+              {(() => {
+                const completedSteps = steps.filter((_, i) => validateStep(i)).length;
+                const progress = Math.round((completedSteps / steps.length) * 100);
+                return (
+                  <>
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                      <span>Progress</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

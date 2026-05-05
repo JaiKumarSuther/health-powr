@@ -271,7 +271,8 @@ export function ApplicationFormContent({
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return;
-        const full = String((data as any).full_name ?? "").trim();
+        const profile = data as { full_name: string | null; phone: string | null };
+        const full = (profile.full_name ?? "").trim();
         const parts = full ? full.split(/\s+/) : [];
         const first = parts.length > 0 ? parts[0] : "";
         const last = parts.length > 1 ? parts.slice(1).join(" ") : "";
@@ -279,7 +280,7 @@ export function ApplicationFormContent({
           ...p,
           firstName: p.firstName || first,
           lastName: p.lastName || last,
-          phone: p.phone || String((data as any).phone ?? ""),
+          phone: p.phone || (profile.phone ?? ""),
         }));
       });
   }, [user]);
