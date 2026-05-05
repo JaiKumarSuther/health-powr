@@ -26,7 +26,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 56px;
   align-items: center;
-  padding: 80px 64px 120px;
+  padding: 152px 64px 120px;
   background: var(--white);
   position: relative;
   overflow: hidden;
@@ -390,7 +390,7 @@
 /* ── XL: generous desktop ── */
 @media (min-width: 1280px) {
   .hp-landing-exact.hero {
-    padding: 100px 80px 140px;
+    padding: 172px 80px 140px;
     gap: 72px;
   }
 
@@ -406,7 +406,7 @@
 /* ── LG: standard laptop (1024–1280) ── */
 @media (max-width: 1280px) and (min-width: 1024px) {
   .hp-landing-exact.hero {
-    padding: 72px 48px 100px;
+    padding: 144px 48px 100px;
     gap: 48px;
   }
 
@@ -426,7 +426,7 @@
     /* Keep two columns but tighten everything */
     grid-template-columns: 1fr 1fr;
     gap: 32px;
-    padding: 56px 40px 80px;
+    padding: 128px 40px 80px;
   }
 
   .hp-landing-exact.hero h1 {
@@ -458,7 +458,7 @@
   .hp-landing-exact.hero {
     grid-template-columns: 1fr;
     gap: 32px;
-    padding: 40px 24px 56px;
+    padding: 112px 24px 56px;
   }
 
   .hp-landing-exact.hero h1 {
@@ -492,7 +492,7 @@
 /* ── XS: phone (360–480) ── */
 @media (max-width: 480px) {
   .hp-landing-exact.hero {
-    padding: 32px 16px 48px;
+    padding: 104px 16px 48px;
     gap: 28px;
   }
 
@@ -545,7 +545,7 @@
 /* ── XXS: very small phones (< 360px) ── */
 @media (max-width: 360px) {
   .hp-landing-exact.hero {
-    padding: 24px 14px 40px;
+    padding: 96px 14px 40px;
   }
 
   .hp-landing-exact.hero h1 {

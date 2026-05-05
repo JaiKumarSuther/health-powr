@@ -66,7 +66,9 @@ export async function getPublicServices(filters?: {
 
   if (filters?.searchText) {
     // Search in name or description
-    query = query.or(`name.ilike.%${filters.searchText}%,description.ilike.%${filters.searchText}%`);
+    // SEC-FIX: Escape special characters in PostgREST filter string to prevent injection
+    const escapedText = filters.searchText.replace(/[()\\,.]/g, '\\$&');
+    query = query.or(`name.ilike.%${escapedText}%,description.ilike.%${escapedText}%`);
   }
 
   if (filters?.borough) {

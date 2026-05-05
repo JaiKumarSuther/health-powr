@@ -11,6 +11,7 @@ import type { User, UserRole } from "../types/user";
 import { supabase } from "../lib/supabase";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { authApi } from "../api/auth";
+import { orgsApi } from "../api/organizations";
 import { withTimeout } from "../lib/withTimeout";
 
 type Profile = {
@@ -63,12 +64,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearAuthError = () => setAuthError(null);
 
-  async function invokeSetupOrganization(orgName: string, borough: string) {
-    const { error } = await supabase.functions.invoke('setup-organization', {
-      body: { orgName, borough },
-    })
-    if (error) throw error
-  }
+  const invokeSetupOrganization = async () => {
+    try {
+      const data = await orgsApi.setup();
+      if (data?.success) {
+        // Refresh profile to get the new organization context
+        await refreshProfile();
+      }
+    } catch (err) {
+      console.error('[Auth] Organization setup failed:', err);
+    }
+  };
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -101,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       bootstrapInFlightRef.current = true;
       orgSetupAttempted.current = true;
       console.log('[Bootstrap] Starting org setup for user:', input.userId, 'org:', orgName);
-      await invokeSetupOrganization(orgName, borough);
+      await invokeSetupOrganization();
       // Only mark as done after a successful creation so a transient failure
       // does not permanently block the org from being created.
       didBootstrapOrgForUserRef.current = input.userId;
@@ -253,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const membershipPromise = (mapped.role === 'organization')
         ? withTimeout(
-            (signal) => supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).abortSignal(signal).maybeSingle(),
+            async (signal) => await supabase.from('organization_members').select('role').eq('profile_id', supaUser.id).abortSignal(signal).maybeSingle(),
             5000
           )
         : Promise.resolve({ data: null, error: null });
@@ -291,11 +297,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       applyResolvedIdentity(mapped, profileData);
 
+      // SEC-AUDIT: Do NOT sync role to user_metadata. user_metadata is client-writable
+      // and trusting it in RLS (as migration 016 did) is a security risk.
+      // Roles should be managed via app_metadata (server-side) or the profiles table.
+      /*
       if (profileData.role && mapped.role !== profileData.role) {
         supabase.auth.updateUser({ data: { role: profileData.role } }).then(({ error }) => {
           if (error) console.error('[Auth] Failed to sync metadata role:', error.message)
         })
       }
+      */
 
       const resolvedRole = (profileData.role as UserRole) ?? mapped.role;
       if (resolvedRole === 'organization') {
@@ -467,7 +478,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 3. If organization role, create the organization now via edge function
       if (role === "organization" && organization) {
         try {
-          await invokeSetupOrganization(organization, borough || "Manhattan");
+          await invokeSetupOrganization();
         } catch (e: unknown) {
           // Non-blocking — avoid logging user-provided org details.
           console.error("[Signup] Org setup failed.", e);
@@ -505,7 +516,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supaUser) return;
     // Never block UI on profile refresh.
     const profileData = await withTimeout(
-      (signal) => authApi.fetchProfile(supaUser.id, { force: true, signal }),
+      (signal) => authApi.fetchProfile(supaUser.id, { signal }),
       1500,
     );
     const mapped = mapSupabaseUserToAppUser(supaUser);

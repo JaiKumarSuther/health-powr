@@ -18,7 +18,7 @@ function timeLabel(dateStr: string): string {
 }
 
 function initials(name: string): string {
-  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  return name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
 
@@ -63,7 +63,7 @@ export function MessagesView() {
       try {
         setLoading(true);
         const data = (await messagesApi.getMyConversations()) as ConversationListItem[];
-        
+
         // Filter out team channels / non-request based for client
         const filtered = data.filter(c => c.request_id !== null);
         setConversations(filtered);
@@ -96,14 +96,13 @@ export function MessagesView() {
     }
     void load();
 
-    const sub = messagesApi.subscribeToMessages(convId, (msg: any) => {
+    const sub = messagesApi.subscribeToMessages(convId, (msg: Message) => {
       setMessages(prev => {
-        const cast = msg as Message;
-        if (prev.some((m) => m.id === cast.id)) return prev;
+        if (prev.some((m) => m.id === msg.id)) return prev;
         const last = prev[prev.length - 1];
-        if (!last) return [cast];
-        if (+new Date(cast.created_at) >= +new Date(last.created_at)) return [...prev, cast];
-        const next = [...prev, cast];
+        if (!last) return [msg];
+        if (+new Date(msg.created_at) >= +new Date(last.created_at)) return [...prev, msg];
+        const next = [...prev, msg];
         next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
         return next;
       });
@@ -121,9 +120,11 @@ export function MessagesView() {
   async function sendMessage() {
     if (!newMessage.trim() || !selectedConvId) return;
     const content = newMessage.trim();
-    setNewMessage('');
+    // SEC-AUDIT: Do NOT clear before send. If it fails, user loses their input.
+    // setNewMessage(''); 
     try {
       const sent = (await messagesApi.send(selectedConvId, content)) as Message;
+      setNewMessage(''); // Clear only on success
       setMessages(prev => {
         const next = [...prev.filter(m => m.id !== sent.id), sent];
         next.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
@@ -131,6 +132,7 @@ export function MessagesView() {
       });
     } catch (err) {
       console.error('[MessagesView] Failed to send message:', err);
+      // Optional: show toast or keep message in input
     }
   }
 
@@ -142,7 +144,7 @@ export function MessagesView() {
       const haystack = `${staffName} ${orgName}`.toLowerCase();
       return haystack.includes(searchTerm.toLowerCase());
     }),
-  [conversations, searchTerm]);
+    [conversations, searchTerm]);
 
   const selectedConv = conversations.find(c => c.id === selectedConvId);
 
@@ -199,9 +201,8 @@ export function MessagesView() {
                   setSelectedConvId(conv.id);
                   if (isMobile) setMobileView('chat');
                 }}
-                className={`flex items-start gap-3 px-4 py-4 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${
-                  isActive ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
-                }`}
+                className={`flex items-start gap-3 px-4 py-4 cursor-pointer border-b border-[#f3f4f6] border-l-2 transition-colors ${isActive ? 'bg-[#f0faf8] border-l-[#0d9b8a]' : 'border-l-transparent hover:bg-[#f6faf8]'
+                  }`}
               >
                 <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {avatarUrl ? (

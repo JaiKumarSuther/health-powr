@@ -149,7 +149,9 @@ export const requestsApi = {
       status: assignedOrgId ? ("in_review" as RequestStatus) : ("new" as RequestStatus),
     };
 
-    console.log("Submitting request payload:", payload);
+    if (import.meta.env.DEV) {
+      console.log("Submitting request payload:", payload);
+    }
 
     const { data: result, error } = await supabase
       .from("service_requests")
@@ -261,9 +263,11 @@ export const requestsApi = {
       throw new Error("Request not found or access denied.");
     }
 
-    if (currentRequest.assigned_staff_id) {
-      throw new Error("This request already has an assigned staff member and cannot be reassigned.");
-    }
+    // SEC-AUDIT: Removing hard block on reassignment. 
+    // Directors/admins should be able to reassign if staff leaves or is sick.
+    // if (currentRequest.assigned_staff_id) {
+    //   throw new Error("This request already has an assigned staff member and cannot be reassigned.");
+    // }
 
     const { error: updateError } = await supabase
       .from("service_requests")
@@ -465,14 +469,17 @@ export const requestsApi = {
 
   // Admin: counts by status
   async getStatusCounts() {
+    // Aggregation query: count rows grouped by status
     const { data, error } = await supabase
       .from("service_requests")
-      .select("status");
+      .select("status, count:status.count()")
+      .order("status");
+
     if (error) throw error;
 
-    return data.reduce(
-      (acc, r) => {
-        acc[r.status] = (acc[r.status] || 0) + 1;
+    return (data ?? []).reduce(
+      (acc, r: { status: string; count: number }) => {
+        acc[r.status] = r.count;
         return acc;
       },
       {} as Record<string, number>,
@@ -486,14 +493,15 @@ export const requestsApi = {
 
     const { data, error } = await supabase
       .from("service_requests")
-      .select("status")
-      .eq("assigned_org_id", ctx.orgId);
+      .select("status, count:status.count()")
+      .eq("assigned_org_id", ctx.orgId)
+      .order("status");
 
     if (error) throw error;
 
-    return data.reduce(
-      (acc, r) => {
-        acc[r.status] = (acc[r.status] || 0) + 1;
+    return (data ?? []).reduce(
+      (acc, r: { status: string; count: number }) => {
+        acc[r.status] = r.count;
         return acc;
       },
       {} as Record<string, number>,
@@ -567,7 +575,7 @@ export type ServiceRequest = {
   service_id: string;
   member_id: string;
   assigned_org_id?: string;
-  status: "in_review" | "approved" | "rejected" | "completed" | "pending";
+  status: RequestStatus;
   metadata: {
     urgency?: "urgent" | "this_week" | "exploring";
     household_size?: string;

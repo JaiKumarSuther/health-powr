@@ -3,6 +3,7 @@ import { CBOSidebar } from './CBOSidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { requestsApi } from '../../api/requests';
+import { orgsApi } from '../../api/organizations';
 import { messagesApi } from '../../api/messages';
 import { supabase } from '../../lib/supabase';
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
@@ -147,18 +148,12 @@ export function CBODashboard() {
           return;
         }
 
-        // No org found — attempt to bootstrap from user metadata via edge function
+        // No org found — attempt to bootstrap from user metadata
         if (!bootstrapAttempted.current && currentUser.organization?.trim()) {
           bootstrapAttempted.current = true;
           try {
-            const { data: sess } = await supabase.auth.getSession();
-            const token = sess.session?.access_token;
-            if (!token) throw new Error('Missing session token.');
-            await invokeSetupOrganization(
-              { orgName: currentUser.organization, borough: 'Manhattan' },
-              token,
-            );
-            await new Promise(r => setTimeout(r, 3000))
+            await orgsApi.setup();
+            await new Promise(r => setTimeout(r, 3000));
             const retryCtx = await requestsApi.getMyOrgMembership();
             if (!active) return;
             if (retryCtx.orgId) {

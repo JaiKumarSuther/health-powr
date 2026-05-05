@@ -81,4 +81,13 @@ export const orgsApi = {
     const { error } = await supabase.from("organizations").delete().eq("id", orgId);
     if (error) throw error;
   },
+
+  /**
+   * Invokes the edge function to provision a new organization for the current user.
+   */
+  async setup() {
+    const { data, error } = await supabase.functions.invoke("setup-organization");
+    if (error) throw error;
+    return data;
+  },
 };

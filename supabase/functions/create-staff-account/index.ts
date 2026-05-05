@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
     return json(200, {
       success: true,
       email: loginEmail,
-      tempPassword,
+      // tempPassword, // SEC-FIX: Do not return plaintext credential in response body. Delivered via email.
       personalEmail,
       delivery: emailResult.sent ? "email" : "manual",
       delivery_attempted: emailResult.attempted,
