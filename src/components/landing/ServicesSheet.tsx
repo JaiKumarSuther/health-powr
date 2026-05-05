@@ -58,13 +58,11 @@ export function ServicesSheet({
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
 
-  // Sync prop changes to local state
   useEffect(() => {
     setLocalSearch(searchQuery);
     setDebouncedSearch(searchQuery);
   }, [searchQuery]);
 
-  // Handle debouncing
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(localSearch);
@@ -96,25 +94,17 @@ export function ServicesSheet({
 
   const filteredAndSortedServices = useMemo(() => {
     if (!services) return [];
-
-    // Fix 2: Filter out null-org services at the data level
     let list = services.filter((s) => s.organizations !== null);
-
-    // Client-side category filtering
     if (activeCategory) {
       list = list.filter((s) => s.category === activeCategory);
     }
-
-    // Sort logic
     if (activeSort === "open") {
       list.sort((a, b) => (a.is_available === b.is_available ? 0 : a.is_available ? -1 : 1));
     } else if (activeSort === "nearest") {
-      // TODO: Implement real distance sorting with geolocation
       list.sort((a, b) => (a.organizations?.borough ?? "").localeCompare(b.organizations?.borough ?? ""));
     } else if (activeSort === "az") {
       list.sort((a, b) => a.name.localeCompare(b.name));
     }
-
     return list;
   }, [services, activeCategory, activeSort]);
 
@@ -135,37 +125,46 @@ export function ServicesSheet({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-200"
-        style={{
-          opacity: isOpen ? 1 : 0,
-          transition: "opacity 0.22s ease",
-        }}
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        style={{ opacity: isOpen ? 1 : 0, transition: "opacity 0.22s ease" }}
         onClick={onClose}
       />
 
       {/* Sheet Container */}
       <div
-        className="relative h-[82vh] w-full max-w-7xl rounded-t-[32px] bg-white shadow-2xl transition-transform duration-[450ms] cubic-bezier(0.34, 1.1, 0.64, 1) flex flex-col overflow-hidden"
+        className="relative flex h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl sm:h-[85vh] sm:rounded-t-[32px]"
         style={{
           transform: isOpen ? "translateY(0)" : "translateY(100%)",
+          transition: "transform 450ms cubic-bezier(0.34, 1.1, 0.64, 1)",
         }}
       >
         {/* Drag Handle */}
-        <div className="pt-3 pb-2 shrink-0">
+        <div className="shrink-0 pb-2 pt-3">
           <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
         </div>
 
         {/* Sticky Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 md:px-8 shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Services near you</h2>
-            <p className="text-[12px] text-slate-400">
-              {filteredAndSortedServices.length} results near {searchQuery || "your area"}
-            </p>
+        <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-6 sm:py-4 md:px-8">
+          {/* Top row: title + close */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">Services near you</h2>
+              <p className="text-[12px] text-slate-400">
+                {filteredAndSortedServices.length} results near {searchQuery || "your area"}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 flex-1 max-w-md mx-4">
-            <div className="relative w-full">
+          {/* Search + filters row */}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            {/* Search input */}
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -175,104 +174,87 @@ export function ServicesSheet({
                 className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 pl-10 pr-4 text-[13px] outline-none transition-all focus:border-teal-200 focus:bg-white focus:ring-4 focus:ring-teal-900/5"
               />
             </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {activeCategory && (
-              <button
-                onClick={() => setActiveCategory(null)}
-                className="flex items-center gap-1.5 rounded-full bg-teal-600 px-3 py-1.5 text-[12px] font-bold text-white transition-all hover:bg-teal-700"
-              >
-                {CATEGORIES.find((c) => c.id === activeCategory)?.label}
-                <X className="h-3 w-3" />
-              </button>
-            )}
+            {/* Filter controls */}
+            <div className="flex shrink-0 items-center gap-2">
+              {activeCategory && (
+                <button
+                  onClick={() => setActiveCategory(null)}
+                  className="flex items-center gap-1.5 rounded-full bg-teal-600 px-3 py-1.5 text-[12px] font-bold text-white transition-all hover:bg-teal-700"
+                >
+                  {CATEGORIES.find((c) => c.id === activeCategory)?.label}
+                  <X className="h-3 w-3" />
+                </button>
+              )}
 
-            {/* Filter Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-[12px] font-semibold transition-all ${isFilterOpen ? "border-teal-200 bg-teal-50 text-teal-700" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
-                  }`}
-              >
-                <Filter className="h-3.5 w-3.5" />
-                Filter
-              </button>
-              {isFilterOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-100 bg-white p-2 shadow-lg z-[9100]">
-                  {CATEGORIES.map((cat) => {
-                    const Icon = cat.icon;
-                    const isActive = activeCategory === cat.id;
-                    return (
+              {/* Filter Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => { setIsFilterOpen(!isFilterOpen); setIsSortOpen(false); }}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-all sm:px-4 ${isFilterOpen ? "border-teal-200 bg-teal-50 text-teal-700" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"}`}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Filter</span>
+                </button>
+                {isFilterOpen && (
+                  <div className="absolute right-0 top-full z-[9100] mt-2 w-48 rounded-xl border border-slate-100 bg-white p-2 shadow-lg">
+                    {CATEGORIES.map((cat) => {
+                      const Icon = cat.icon;
+                      const isActive = activeCategory === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => { setActiveCategory(cat.id); setIsFilterOpen(false); }}
+                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] hover:bg-slate-50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className={`h-4 w-4 ${isActive ? "text-teal-600" : "text-slate-400"}`} />
+                            <span className={isActive ? "font-bold text-slate-900" : "text-slate-600"}>{cat.label}</span>
+                          </div>
+                          {isActive && <ShieldCheck className="h-4 w-4 text-teal-600" />}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => { setActiveCategory(null); setIsFilterOpen(false); }}
+                      className="mt-1 w-full rounded-lg border-t border-slate-100 px-3 py-2 text-left text-[13px] font-semibold text-slate-400 hover:bg-slate-50"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Sort Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => { setIsSortOpen(!isSortOpen); setIsFilterOpen(false); }}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-all sm:px-4 ${isSortOpen ? "border-teal-200 bg-teal-50 text-teal-700" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"}`}
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{SORTS.find((s) => s.id === activeSort)?.label || "Sort"}</span>
+                </button>
+                {isSortOpen && (
+                  <div className="absolute right-0 top-full z-[9100] mt-2 w-40 rounded-xl border border-slate-100 bg-white p-2 shadow-lg">
+                    {SORTS.map((s) => (
                       <button
-                        key={cat.id}
-                        onClick={() => {
-                          setActiveCategory(cat.id);
-                          setIsFilterOpen(false);
-                        }}
+                        key={s.id}
+                        onClick={() => { setActiveSort(s.id); setIsSortOpen(false); }}
                         className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] hover:bg-slate-50"
                       >
-                        <div className="flex items-center gap-2">
-                          <Icon className={`h-4 w-4 ${isActive ? "text-teal-600" : "text-slate-400"}`} />
-                          <span className={isActive ? "font-bold text-slate-900" : "text-slate-600"}>{cat.label}</span>
-                        </div>
-                        {isActive && <ShieldCheck className="h-4 w-4 text-teal-600" />}
+                        <span className={activeSort === s.id ? "font-bold text-slate-900" : "text-slate-600"}>{s.label}</span>
+                        {activeSort === s.id && <ShieldCheck className="h-4 w-4 text-teal-600" />}
                       </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => {
-                      setActiveCategory(null);
-                      setIsFilterOpen(false);
-                    }}
-                    className="mt-1 w-full rounded-lg border-t border-slate-100 px-3 py-2 text-left text-[13px] font-semibold text-slate-400 hover:bg-slate-50"
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* Sort Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsSortOpen(!isSortOpen)}
-                className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-[12px] font-semibold transition-all ${isSortOpen ? "border-teal-200 bg-teal-50 text-teal-700" : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
-                  }`}
-              >
-                <ArrowUpDown className="h-3.5 w-3.5" />
-                {SORTS.find((s) => s.id === activeSort)?.label || "Sort"}
-              </button>
-              {isSortOpen && (
-                <div className="absolute right-0 top-full mt-2 w-40 rounded-xl border border-slate-100 bg-white p-2 shadow-lg z-[9100]">
-                  {SORTS.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setActiveSort(s.id);
-                        setIsSortOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] hover:bg-slate-50"
-                    >
-                      <span className={activeSort === s.id ? "font-bold text-slate-900" : "text-slate-600"}>{s.label}</span>
-                      {activeSort === s.id && <ShieldCheck className="h-4 w-4 text-teal-600" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={onClose}
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
         {/* Results Area */}
-        <div className="flex-1 overflow-y-auto px-5 pt-2 pb-6 md:px-8">
+        <div className="flex-1 overflow-y-auto px-4 pb-8 pt-3 sm:px-6 sm:pt-4 md:px-8">
           {isLoading || showSkeleton ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => (
@@ -291,7 +273,7 @@ export function ServicesSheet({
               ))}
             </div>
           ) : isError ? (
-            <div className="flex h-[400px] flex-col items-center justify-center text-center">
+            <div className="flex h-[300px] flex-col items-center justify-center text-center sm:h-[400px]">
               <AlertCircle className="mb-4 h-12 w-12 text-slate-200" />
               <h3 className="text-base font-bold text-slate-900">Something went wrong</h3>
               <p className="mt-1 text-sm text-slate-400">Please try again.</p>
@@ -303,7 +285,7 @@ export function ServicesSheet({
               </button>
             </div>
           ) : filteredAndSortedServices.length === 0 ? (
-            <div className="flex h-[400px] flex-col items-center justify-center text-center">
+            <div className="flex h-[300px] flex-col items-center justify-center text-center sm:h-[400px]">
               <Search className="mb-4 h-12 w-12 text-slate-200" />
               <h3 className="text-base font-bold text-slate-900">No services found</h3>
               <p className="mt-1 text-sm text-slate-400">Try a different category or search term.</p>
@@ -318,7 +300,7 @@ export function ServicesSheet({
                     className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-teal-200 hover:shadow-xl hover:shadow-teal-900/5"
                   >
                     {/* Photo / Header */}
-                    <div className="relative h-[120px] w-full overflow-hidden bg-slate-50">
+                    <div className="relative h-[110px] w-full overflow-hidden bg-slate-50 sm:h-[120px]">
                       {service.image_url || service.organizations?.avatar_url ? (
                         <img
                           src={service.image_url || service.organizations?.avatar_url}
@@ -332,12 +314,9 @@ export function ServicesSheet({
                           <CatIcon className="h-12 w-12" />
                         </div>
                       )}
-                      {/* Availability Badge */}
                       <div className="absolute top-3 right-3">
                         <span
-                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold shadow-sm backdrop-blur-md ${service.is_available 
-                            ? "bg-white/90 text-green-700" 
-                            : "bg-white/90 text-amber-700"
+                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold shadow-sm backdrop-blur-md ${service.is_available ? "bg-white/90 text-green-700" : "bg-white/90 text-amber-700"
                             }`}
                         >
                           <div className={`h-1.5 w-1.5 rounded-full ${service.is_available ? "bg-green-500" : "bg-amber-500"}`} />
@@ -347,7 +326,7 @@ export function ServicesSheet({
                     </div>
 
                     {/* Body */}
-                    <div className="flex flex-1 flex-col p-5">
+                    <div className="flex flex-1 flex-col p-4 sm:p-5">
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <h4 className="line-clamp-1 text-[14px] font-bold text-slate-900">{service.name}</h4>
@@ -361,14 +340,12 @@ export function ServicesSheet({
                           {service.description}
                         </p>
 
-                        <div className="mt-4 space-y-2">
+                        <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
                           <div className="flex items-center gap-2.5 text-[11px] text-slate-400">
                             <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-50">
                               <MapPin className="h-3 w-3 text-slate-400" />
                             </div>
-                            <span className="truncate">
-                              {service.organizations?.borough ?? "New York"}
-                            </span>
+                            <span className="truncate">{service.organizations?.borough ?? "New York"}</span>
                           </div>
                           {service.hours && (
                             <div className="flex items-center gap-2.5 text-[11px] text-slate-400">
@@ -394,7 +371,7 @@ export function ServicesSheet({
                           e.stopPropagation();
                           onRequestNow(service);
                         }}
-                        className="mt-6 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 text-[13px] font-bold text-white shadow-lg shadow-teal-600/10 transition-all hover:bg-teal-700 hover:shadow-teal-600/20 active:scale-[0.98]"
+                        className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 text-[13px] font-bold text-white shadow-lg shadow-teal-600/10 transition-all hover:bg-teal-700 hover:shadow-teal-600/20 active:scale-[0.98] sm:mt-6"
                       >
                         Request Now
                         <ChevronRight className="h-4 w-4" />

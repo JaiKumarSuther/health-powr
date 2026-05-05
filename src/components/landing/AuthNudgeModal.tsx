@@ -1,6 +1,19 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Lock, Clock, ArrowLeft, Home, Users, HeartPulse, Briefcase, Scale, GraduationCap, MessageCircle, AlertCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Lock,
+  Clock,
+  ArrowLeft,
+  Home,
+  Users,
+  HeartPulse,
+  Briefcase,
+  Scale,
+  GraduationCap,
+  MessageCircle,
+  AlertCircle,
+} from "lucide-react";
 
 interface AuthNudgeModalProps {
   isOpen: boolean;
@@ -49,7 +62,7 @@ export function AuthNudgeModal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "1.5rem",
+        padding: "1rem",
         backgroundColor: "rgba(15, 23, 42, 0.3)",
         backdropFilter: "blur(2px)",
         pointerEvents: isOpen ? "all" : "none",
@@ -63,15 +76,15 @@ export function AuthNudgeModal({
 
       {/* Modal Card */}
       <div
-        className="relative bg-white rounded-2xl w-full max-w-[400px] shadow-2xl border border-slate-100 overflow-hidden"
+        className="relative w-full max-w-[400px] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl"
         style={{
           transform: isOpen ? "translateY(0)" : "translateY(12px)",
           transition: "transform 0.28s cubic-bezier(0.34, 1.2, 0.64, 1)",
         }}
       >
         {/* Banner */}
-        <div className="flex items-center gap-3 bg-emerald-50 border-b border-emerald-100 px-5 py-4">
-          <div className="h-[42px] w-[42px] shrink-0 overflow-hidden rounded-xl bg-white border border-emerald-100">
+        <div className="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="h-[42px] w-[42px] shrink-0 overflow-hidden rounded-xl border border-emerald-100 bg-white">
             {service?.photoUrl ? (
               <img src={service.photoUrl} alt={service.name} className="h-full w-full object-cover" />
             ) : (
@@ -89,32 +102,35 @@ export function AuthNudgeModal({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-bold text-slate-900">{service?.name}</div>
-            <div className="truncate text-[11px] font-semibold text-teal-600 uppercase tracking-wide">
+            <div className="truncate text-[11px] font-semibold uppercase tracking-wide text-teal-600">
               {service?.meta || "Available now"}
             </div>
           </div>
-          <div className="rounded-full border border-green-200 bg-white px-2 py-1 text-[10px] font-semibold text-green-700 whitespace-nowrap">
+          <div className="shrink-0 rounded-full border border-green-200 bg-white px-2 py-1 text-[10px] font-semibold text-green-700 whitespace-nowrap">
             Saved ✓
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex flex-col items-center px-6 py-8 text-center">
+        <div className="flex flex-col items-center px-5 py-7 text-center sm:px-6 sm:py-8">
           <h3 className="text-2xl font-extrabold tracking-tight text-slate-900">Almost there</h3>
-          <p className="mt-2 text-[13px] leading-relaxed text-slate-400 max-w-[280px]">
-            Create a free account to submit your request to <span className="font-bold text-slate-600">{service?.orgName}</span>. Takes about 30 seconds.
+          <p className="mt-2 max-w-[280px] text-[13px] leading-relaxed text-slate-400">
+            Create a free account to submit your request to{" "}
+            <span className="font-bold text-slate-600">{service?.orgName}</span>. Takes about 30 seconds.
           </p>
 
           <button
             onClick={onSignUp}
-            className="mt-6 h-12 w-full rounded-xl bg-teal-600 text-[15px] font-bold text-white transition-colors hover:bg-teal-700 shadow-lg shadow-teal-600/20"
+            className="mt-6 h-12 w-full rounded-xl bg-teal-600 text-[15px] font-bold text-white shadow-lg shadow-teal-600/20 transition-colors hover:bg-teal-700"
           >
             Create free account →
           </button>
 
           <div className="my-4 flex w-full items-center gap-3">
             <div className="h-px flex-1 bg-slate-100" />
-            <span className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">already have an account?</span>
+            <span className="text-[11px] font-medium uppercase tracking-widest text-slate-400">
+              already have an account?
+            </span>
             <div className="h-px flex-1 bg-slate-100" />
           </div>
 
@@ -126,26 +142,24 @@ export function AuthNudgeModal({
           </button>
 
           {/* Reassurance */}
-          <div className="mt-8 flex justify-center gap-5">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-              <span className="text-[11px] font-medium text-slate-400">Free forever</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Lock className="h-3 w-3 text-emerald-500" />
-              <span className="text-[11px] font-medium text-slate-400">Private</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3 w-3 text-emerald-500" />
-              <span className="text-[11px] font-medium text-slate-400">30 seconds</span>
-            </div>
+          <div className="mt-7 flex flex-wrap justify-center gap-4 sm:mt-8 sm:gap-5">
+            {[
+              { Icon: CheckCircle2, text: "Free forever" },
+              { Icon: Lock, text: "Private" },
+              { Icon: Clock, text: "30 seconds" },
+            ].map(({ Icon, text }) => (
+              <div key={text} className="flex items-center gap-1.5">
+                <Icon className="h-3 w-3 text-emerald-500" />
+                <span className="text-[11px] font-medium text-slate-400">{text}</span>
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Footer */}
         <button
           onClick={onClose}
-          className="w-full border-t border-slate-50 py-4 text-[12px] font-bold text-slate-400 transition-colors hover:text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 border-t border-slate-50 py-4 text-[12px] font-bold text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
         >
           <ArrowLeft className="h-3 w-3" />
           Back to results

@@ -13,12 +13,10 @@ function TrustItem({
 }) {
   return (
     <li className="flex items-center gap-x-3">
-      {/* CHANGE: icon bg uses semi-transparent teal to work on navy-light bg */}
       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-teal-400/25 bg-teal-400/12 text-teal-300">
         <Icon className="h-5 w-5 flex-shrink-0" />
       </span>
       <span className="text-sm leading-relaxed text-white/60">
-        {/* CHANGE: strong color changed from slate-100 to white */}
         <strong className="text-white">{title}</strong> {body}
       </span>
     </li>
@@ -37,19 +35,19 @@ function ChatBubble({
   time: string;
 }) {
   return (
-    <div className={classNames("flex gap-3", !inbound && "flex-row-reverse")}>
+    <div className={classNames("flex gap-2.5 sm:gap-3", !inbound && "flex-row-reverse")}>
       <div
         className={classNames(
-          "inline-flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-extrabold text-white",
+          "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold text-white",
           inbound ? "bg-violet-400" : "bg-slate-600",
         )}
       >
         {inbound ? "R" : "J"}
       </div>
-      <div className="max-w-[78%]">
+      <div className="max-w-[82%] sm:max-w-[78%]">
         <div
           className={classNames(
-            "rounded-2xl border px-4 py-3",
+            "rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3",
             inbound
               ? "border-gray-200 bg-white rounded-bl-md"
               : "border-teal-700/30 bg-teal-600 text-white rounded-br-md",
@@ -203,9 +201,10 @@ export function Messaging() {
   };
 
   return (
-    <section id="mission" className="bg-[#1a3048] px-4 py-20 md:px-12">
-      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-14 md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-20">
-        <div className="space-y-6">
+    <section id="mission" className="bg-[#1a3048] px-4 py-14 sm:py-20 md:px-12">
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 items-center gap-10 sm:gap-14 md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-20">
+        {/* Left: copy */}
+        <div className="space-y-5 sm:space-y-6">
           <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-teal-300">
             Real connections
           </div>
@@ -223,10 +222,12 @@ export function Messaging() {
           </ul>
         </div>
 
-        <div className="rounded-3xl border border-white/8 bg-white/4 p-2">
+        {/* Right: chat widget */}
+        <div className="rounded-3xl border border-white/8 bg-white/4 p-1.5 sm:p-2">
           <div className="rounded-2xl bg-slate-50 p-4 sm:p-6">
-            <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
-              <div className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-violet-400 text-sm font-extrabold text-white">
+            {/* Chat header */}
+            <div className="flex items-center gap-3 border-b border-gray-200 pb-3 sm:pb-4">
+              <div className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-violet-400 text-sm font-extrabold text-white sm:h-10 sm:w-10">
                 R
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-slate-50 bg-emerald-500" />
               </div>
@@ -238,12 +239,13 @@ export function Messaging() {
                   Urban Health Plan · East Harlem
                 </div>
               </div>
-              <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-extrabold text-teal-800">
+              <span className="shrink-0 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-extrabold text-teal-800 sm:px-3">
                 Verified
               </span>
             </div>
 
-            <div className="flex h-[480px] flex-col gap-3 overflow-hidden pt-4">
+            {/* Messages */}
+            <div className="flex h-[340px] flex-col gap-3 overflow-hidden pt-4 sm:h-[420px] lg:h-[480px]">
               <ChatBubble inbound sender={initial[0].sender} text={m1Typed} time={initial[0].time} />
               <div className={classNames("transition-all duration-300", showT1 ? "opacity-100" : "opacity-0")}>
                 <div className="mt-[-10px]" />
@@ -256,18 +258,24 @@ export function Messaging() {
               </div>
             </div>
 
-            <div className="mt-5 flex items-center gap-3 border-t border-gray-200 pt-4">
+            {/* Input */}
+            <div className="mt-4 flex items-center gap-2.5 border-t border-gray-200 pt-3 sm:mt-5 sm:gap-3 sm:pt-4">
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
                 placeholder="Type a message..."
                 className="h-10 flex-1 rounded-full border border-gray-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
               />
               <button
                 type="button"
                 onClick={send}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white transition hover:bg-teal-700"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white transition hover:bg-teal-700"
                 aria-label="Send message"
               >
                 <ChevronRight className="h-5 w-5 rotate-[-45deg]" />

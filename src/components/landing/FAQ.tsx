@@ -38,15 +38,15 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
   return (
     <section
       id="faq"
-      className="relative overflow-hidden bg-white px-6 pb-24 pt-14 sm:pb-32 sm:pt-20 lg:px-12"
+      className="relative overflow-hidden bg-white px-4 pb-20 pt-12 sm:px-6 sm:pb-28 sm:pt-16 lg:px-12 lg:pb-32 lg:pt-20"
     >
       {/* Subtle background glow */}
       <div className="pointer-events-none absolute inset-0 -z-10 flex justify-center">
-        <div className="h-[800px] w-[800px] -translate-y-1/3 rounded-full bg-teal-200/30 blur-[120px]" />
+        <div className="h-[600px] w-[600px] -translate-y-1/3 rounded-full bg-teal-200/30 blur-[100px] sm:h-[800px] sm:w-[800px] sm:blur-[120px]" />
       </div>
 
       <div className="mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 gap-16 lg:grid-cols-[1fr_1.5fr] lg:gap-24">
+        <div className="grid grid-cols-1 gap-10 sm:gap-14 lg:grid-cols-[1fr_1.5fr] lg:gap-24">
 
           {/* Left column */}
           <div className="flex flex-col items-start lg:sticky lg:top-32 lg:h-max">
@@ -54,15 +54,15 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
               <span className="mr-2 flex h-1.5 w-1.5 rounded-full bg-teal-600" />
               Frequently Asked Questions
             </div>
-            <h2 className="mt-6 text-balance text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+            <h2 className="mt-5 text-balance text-3xl font-extrabold tracking-tight text-slate-900 sm:mt-6 sm:text-4xl lg:text-5xl">
               Everything you need to know.
             </h2>
-            <p className="mt-4 max-w-md text-lg leading-relaxed text-slate-600">
+            <p className="mt-3 max-w-md text-base leading-relaxed text-slate-600 sm:mt-4 sm:text-lg">
               Quick answers about how HealthPowr connects you to the resources you need, completely free.
             </p>
             <button
               onClick={onJoin}
-              className="group relative mt-10 inline-flex h-12 items-center justify-center overflow-hidden rounded-full bg-teal-600 px-8 font-semibold text-white transition-all duration-300 hover:bg-teal-700 hover:shadow-[0_0_40px_-10px_rgba(13,148,136,0.6)]"
+              className="group relative mt-8 inline-flex h-12 items-center justify-center overflow-hidden rounded-full bg-teal-600 px-8 font-semibold text-white transition-all duration-300 hover:bg-teal-700 hover:shadow-[0_0_40px_-10px_rgba(13,148,136,0.6)] sm:mt-10"
             >
               <span className="mr-2">Join the network</span>
               <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
@@ -70,7 +70,7 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
           </div>
 
           {/* Right column: accordion */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             {items.map((it, idx) => {
               const isOpen = idx === openIdx;
               return (
@@ -86,15 +86,15 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
                   <button
                     onClick={() => setOpenIdx((prev) => (prev === idx ? -1 : idx))}
                     className={classNames(
-                      "flex w-full items-center justify-between gap-6 px-6 text-left focus-visible:outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-inset",
-                      isOpen ? "py-5" : "py-[13px]",
+                      "flex w-full items-center justify-between gap-4 px-5 text-left focus-visible:outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-inset sm:gap-6 sm:px-6",
+                      isOpen ? "py-4 sm:py-5" : "py-[13px]",
                     )}
                     aria-expanded={isOpen}
                     aria-controls={`faq-panel-${idx}`}
                   >
                     <span
                       className={classNames(
-                        "text-base sm:text-lg font-semibold tracking-tight transition-colors",
+                        "text-sm font-semibold tracking-tight transition-colors sm:text-base lg:text-lg",
                         isOpen ? "text-teal-950" : "text-slate-900",
                       )}
                     >
@@ -102,7 +102,7 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
                     </span>
                     <div
                       className={classNames(
-                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-all duration-200 ease-out",
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-200 ease-out sm:h-10 sm:w-10",
                         isOpen
                           ? "border-teal-600 bg-teal-600 text-white"
                           : "border-slate-200 bg-slate-50 text-slate-500 group-hover:border-slate-300 group-hover:bg-slate-100",
@@ -126,7 +126,7 @@ export function FAQ({ onJoin }: { onJoin: () => void }) {
                     )}
                   >
                     <div className="overflow-hidden">
-                      <p className="pb-6 pl-6 pr-12 text-base leading-relaxed text-slate-600 sm:text-md">
+                      <p className="pb-5 pl-5 pr-10 text-sm leading-relaxed text-slate-600 sm:pb-6 sm:pl-6 sm:pr-12 sm:text-base">
                         {it.a}
                       </p>
                     </div>

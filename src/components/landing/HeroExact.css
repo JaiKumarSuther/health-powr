@@ -1,5 +1,9 @@
+/* ─────────────────────────────────────────────
+   HeroExact.css — fully responsive (all breakpoints)
+───────────────────────────────────────────── */
+
 .hp-landing-exact.hero {
-  /* Scoped tokens (kept aligned to existing palette) */
+  /* Scoped design tokens */
   --teal: #0d9488;
   --teal-dark: #0f766e;
   --teal-light: rgba(13, 148, 136, 0.12);
@@ -16,7 +20,7 @@
   --green-light: #dcfce7;
 }
 
-/* HERO (ported 1:1 from provided HTML, scoped) */
+/* ── Layout ── */
 .hp-landing-exact.hero {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -25,6 +29,7 @@
   padding: 80px 64px 120px;
   background: var(--white);
   position: relative;
+  overflow: hidden;
 }
 
 .hp-landing-exact.hero>* {
@@ -32,12 +37,16 @@
   z-index: 1;
 }
 
+/* ── Left column ── */
 .hp-landing-exact .hero-left {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-width: 0;
+  /* prevent grid blowout */
 }
 
+/* ── Badge ── */
 .hp-landing-exact .launch-badge {
   display: inline-flex;
   align-items: center;
@@ -80,6 +89,7 @@
   background: var(--teal);
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 
 .hp-landing-exact .launch-badge span {
@@ -92,25 +102,30 @@
   z-index: 1;
 }
 
+/* ── Heading ── */
 .hp-landing-exact.hero h1 {
   font-size: 50px;
   font-weight: 800;
   line-height: 1.08;
   color: var(--near-black);
   letter-spacing: -1.5px;
+  margin: 0;
 }
 
+/* ── Subtitle ── */
 .hp-landing-exact .hero-sub {
   font-size: 17px;
   color: var(--text-muted);
   line-height: 1.65;
-  white-space: nowrap;
+  margin: 0;
 }
 
+/* Used to optionally break the subtitle onto two lines on desktop */
 .hp-landing-exact .hero-sub-break {
   display: block;
 }
 
+/* ── Search box ── */
 .hp-landing-exact .search-wrap {
   background: var(--off-white);
   border: 1.5px solid var(--border);
@@ -128,6 +143,7 @@
 
 .hp-landing-exact .search-input {
   flex: 1;
+  min-width: 0;
   border: 1.5px solid var(--border-dark);
   border-radius: 10px;
   padding: 12px 16px;
@@ -136,6 +152,7 @@
   outline: none;
   font-family: inherit;
   background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .hp-landing-exact .search-input::placeholder {
@@ -180,12 +197,15 @@
   cursor: pointer;
   white-space: nowrap;
   font-family: inherit;
+  flex-shrink: 0;
+  transition: background 0.15s;
 }
 
 .hp-landing-exact .search-btn:hover {
   background: #0f172a;
 }
 
+/* ── Focus rings ── */
 .hp-landing-exact .search-btn:focus-visible,
 .hp-landing-exact .pill:focus-visible,
 .hp-landing-exact .org-link a:focus-visible {
@@ -194,6 +214,7 @@
   border-radius: 12px;
 }
 
+/* ── Category pills ── */
 .hp-landing-exact .pills {
   display: flex;
   gap: 8px;
@@ -209,7 +230,7 @@
   font-weight: 500;
   background: var(--white);
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   transition: all 0.15s;
@@ -236,15 +257,18 @@
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
 .hp-landing-exact .pill.active svg {
   stroke: var(--white);
 }
 
+/* ── Org link ── */
 .hp-landing-exact .org-link {
   font-size: 13px;
   color: var(--text-muted);
+  margin: 0;
 }
 
 .hp-landing-exact .org-link a {
@@ -253,14 +277,20 @@
   text-decoration: none;
 }
 
+.hp-landing-exact .org-link a:hover {
+  text-decoration: underline;
+}
+
+/* ── Right column (map) ── */
 .hp-landing-exact .hero-right {
   position: relative;
   height: 460px;
   isolation: isolate;
   z-index: 0;
+  min-width: 0;
 }
 
-/* ── Background accent SVGs ── */
+/* ── Decorative accent SVGs ── */
 .hp-landing-exact .hp-accent {
   position: absolute;
   pointer-events: none;
@@ -274,7 +304,42 @@
   display: block;
 }
 
-/* heart-small pulse animation */
+/*
+  Visibility helpers — replace Tailwind's hidden/sm:block/md:block/lg:block/xl:block.
+  All accents are hidden by default; each tier switches on at its min-width.
+*/
+.hp-landing-exact .hp-accent--sm,
+.hp-landing-exact .hp-accent--md,
+.hp-landing-exact .hp-accent--lg,
+.hp-landing-exact .hp-accent--xl {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .hp-landing-exact .hp-accent--sm {
+    display: block;
+  }
+}
+
+@media (min-width: 768px) {
+  .hp-landing-exact .hp-accent--md {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hp-landing-exact .hp-accent--lg {
+    display: block;
+  }
+}
+
+@media (min-width: 1280px) {
+  .hp-landing-exact .hp-accent--xl {
+    display: block;
+  }
+}
+
+/* ── Heart-beat animation ── */
 @keyframes hpHeartBeat {
 
   0%,
@@ -304,18 +369,96 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hp-landing-exact .hp-accent--heart-beat {
+
+  .hp-landing-exact .hp-accent--heart-beat,
+  .hp-landing-exact .launch-badge::before {
     animation: none;
     transform: rotate(10deg);
   }
 }
 
-/* MOBILE (ported + scoped) */
+/* ════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   xl   ≥ 1280px  wide desktop
+   lg   1024–1280 standard laptop
+   md   768–1024  tablet landscape
+   sm   480–768   tablet portrait / large phone
+   xs   360–480   typical phone
+   xxs  < 360     small phone
+════════════════════════════════════════════ */
+
+/* ── XL: generous desktop ── */
+@media (min-width: 1280px) {
+  .hp-landing-exact.hero {
+    padding: 100px 80px 140px;
+    gap: 72px;
+  }
+
+  .hp-landing-exact.hero h1 {
+    font-size: 56px;
+  }
+
+  .hp-landing-exact .hero-right {
+    height: 500px;
+  }
+}
+
+/* ── LG: standard laptop (1024–1280) ── */
+@media (max-width: 1280px) and (min-width: 1024px) {
+  .hp-landing-exact.hero {
+    padding: 72px 48px 100px;
+    gap: 48px;
+  }
+
+  .hp-landing-exact.hero h1 {
+    font-size: 44px;
+    letter-spacing: -1.2px;
+  }
+
+  .hp-landing-exact .hero-right {
+    height: 420px;
+  }
+}
+
+/* ── MD: tablet landscape (768–1024) ── */
+@media (max-width: 1024px) and (min-width: 768px) {
+  .hp-landing-exact.hero {
+    /* Keep two columns but tighten everything */
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding: 56px 40px 80px;
+  }
+
+  .hp-landing-exact.hero h1 {
+    font-size: 38px;
+    letter-spacing: -1px;
+  }
+
+  .hp-landing-exact .hero-sub {
+    font-size: 15px;
+    white-space: normal;
+  }
+
+  .hp-landing-exact .hero-sub-break {
+    display: inline;
+  }
+
+  .hp-landing-exact .hero-right {
+    height: 360px;
+  }
+
+  .hp-landing-exact .search-btn {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+}
+
+/* ── SM: tablet portrait / large phone (480–768) ── */
 @media (max-width: 768px) {
   .hp-landing-exact.hero {
     grid-template-columns: 1fr;
     gap: 32px;
-    padding: 40px 24px 48px;
+    padding: 40px 24px 56px;
   }
 
   .hp-landing-exact.hero h1 {
@@ -326,8 +469,6 @@
   .hp-landing-exact .hero-sub {
     font-size: 15px;
     white-space: normal;
-    overflow: hidden;
-    max-width: 100%;
   }
 
   .hp-landing-exact .hero-sub-break {
@@ -342,10 +483,85 @@
     padding: 12px 16px;
     font-size: 14px;
   }
+
+  .hp-landing-exact .launch-badge span {
+    font-size: 10px;
+  }
 }
 
+/* ── XS: phone (360–480) ── */
 @media (max-width: 480px) {
+  .hp-landing-exact.hero {
+    padding: 32px 16px 48px;
+    gap: 28px;
+  }
+
   .hp-landing-exact.hero h1 {
-    font-size: 32px;
+    font-size: 30px;
+    letter-spacing: -0.8px;
+  }
+
+  .hp-landing-exact .hero-sub {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* Stack button below input on narrow screens */
+  .hp-landing-exact .search-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .hp-landing-exact .search-btn {
+    width: 100%;
+    padding: 13px 16px;
+    font-size: 15px;
+  }
+
+  .hp-landing-exact .search-input {
+    font-size: 16px;
+    /* prevent iOS auto-zoom */
+  }
+
+  .hp-landing-exact .search-wrap {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .hp-landing-exact .hero-right {
+    height: 240px;
+  }
+
+  .hp-landing-exact .pills {
+    gap: 6px;
+  }
+
+  .hp-landing-exact .pill {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+/* ── XXS: very small phones (< 360px) ── */
+@media (max-width: 360px) {
+  .hp-landing-exact.hero {
+    padding: 24px 14px 40px;
+  }
+
+  .hp-landing-exact.hero h1 {
+    font-size: 26px;
+    letter-spacing: -0.5px;
+  }
+
+  .hp-landing-exact .hero-sub {
+    font-size: 13.5px;
+  }
+
+  .hp-landing-exact .search-input {
+    padding: 11px 14px;
+  }
+
+  .hp-landing-exact .launch-badge {
+    padding: 5px 10px;
   }
 }

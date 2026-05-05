@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm install *)",
       "Bash(npx tsc *)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
