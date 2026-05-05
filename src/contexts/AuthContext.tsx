@@ -12,6 +12,7 @@ import { supabase } from "../lib/supabase";
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { authApi } from "../api/auth";
 import { withTimeout } from "../lib/withTimeout";
+import { invokeSetupOrganization } from "../lib/setupOrganization";
 
 type Profile = {
   id: string;
@@ -60,15 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const orgSetupAttempted = useRef(false);
   const didBootstrapOrgForUserRef = useRef<string | null>(null);
   const bootstrapInFlightRef = useRef(false);
+  // Timer ref for the background profile-retry so it can be cancelled on unmount.
+  const pendingRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearAuthError = () => setAuthError(null);
-
-  async function invokeSetupOrganization(orgName: string, borough: string) {
-    const { error } = await supabase.functions.invoke('setup-organization', {
-      body: { orgName, borough },
-    })
-    if (error) throw error
-  }
 
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -278,14 +274,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsResolvingRole(false);
         setIsLoading(false);
 
-        // Background retry: attempt once more after 5 seconds
-        setTimeout(async () => {
+        // Background retry: attempt once more after 5 seconds.
+        // Store the timer ID so it can be cancelled if the component unmounts
+        // before the callback fires, preventing state updates on unmounted trees.
+        const retryTimer = setTimeout(async () => {
           if (!isMounted()) return;
           const retried = await authApi.fetchProfile(supaUser.id);
           if (retried && isMounted()) {
             applyResolvedIdentity(mapped, retried);
           }
         }, 5000);
+        // Expose the timer for cleanup via a module-level variable so the
+        // outer useEffect cleanup function can clear it.
+        pendingRetryTimerRef.current = retryTimer;
         return;
       }
 
@@ -505,7 +506,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supaUser) return;
     // Never block UI on profile refresh.
     const profileData = await withTimeout(
-      (signal) => authApi.fetchProfile(supaUser.id, { force: true, signal }),
+      (signal) => authApi.fetchProfile(supaUser.id, { signal }),
       1500,
     );
     const mapped = mapSupabaseUserToAppUser(supaUser);

@@ -65,8 +65,10 @@ export async function getPublicServices(filters?: {
   }
 
   if (filters?.searchText) {
-    // Search in name or description
-    query = query.or(`name.ilike.%${filters.searchText}%,description.ilike.%${filters.searchText}%`);
+    // Use individual .ilike() calls instead of a raw .or() string to avoid
+    // special characters in the search term corrupting the PostgREST filter.
+    const term = `%${filters.searchText}%`;
+    query = query.or(`name.ilike.${term},description.ilike.${term}`);
   }
 
   if (filters?.borough) {

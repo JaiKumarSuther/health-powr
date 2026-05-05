@@ -149,7 +149,9 @@ export const requestsApi = {
       status: assignedOrgId ? ("in_review" as RequestStatus) : ("new" as RequestStatus),
     };
 
-    console.log("Submitting request payload:", payload);
+    if (import.meta.env.DEV) {
+      console.log("Submitting request payload:", payload);
+    }
 
     const { data: result, error } = await supabase
       .from("service_requests")
@@ -261,8 +263,8 @@ export const requestsApi = {
       throw new Error("Request not found or access denied.");
     }
 
-    if (currentRequest.assigned_staff_id) {
-      throw new Error("This request already has an assigned staff member and cannot be reassigned.");
+    if (currentRequest.assigned_staff_id && currentRequest.assigned_staff_id === staffProfileId) {
+      throw new Error("This staff member is already assigned to this request.");
     }
 
     const { error: updateError } = await supabase
@@ -285,11 +287,12 @@ export const requestsApi = {
     }
 
     // Write assignment action as internal note for timeline/audit.
+    const action = currentRequest.assigned_staff_id ? "Reassigned to" : "Assigned to";
     const { error: noteError } = await supabase.from("request_notes").insert({
       request_id: requestId,
       author_id: ctx.userId,
       is_internal: true,
-      content: `[Assignment] ${staffProfileId ? `Assigned to ${assigneeLabel}` : "Cleared assignment"}`,
+      content: `[Assignment] ${action} ${assigneeLabel}`,
     });
     if (noteError) throw noteError;
   },
@@ -463,37 +466,39 @@ export const requestsApi = {
     return data;
   },
 
-  // Admin: counts by status
+  // Admin: counts by status using server-side aggregation to avoid fetching every row.
   async getStatusCounts() {
     const { data, error } = await supabase
       .from("service_requests")
-      .select("status");
+      .select("status, count:id.count()")
+      .order("status");
     if (error) throw error;
 
-    return data.reduce(
+    return (data as unknown as { status: string; count: number }[]).reduce(
       (acc, r) => {
-        acc[r.status] = (acc[r.status] || 0) + 1;
+        acc[r.status] = Number(r.count);
         return acc;
       },
       {} as Record<string, number>,
     );
   },
 
-  // CBO: counts by status for their org
+  // CBO: counts by status for their org using server-side aggregation.
   async getOrgStatusCounts() {
     const ctx = await this.getMyOrgMembership();
     if (!ctx.orgId || ctx.role === "member") return {};
 
     const { data, error } = await supabase
       .from("service_requests")
-      .select("status")
-      .eq("assigned_org_id", ctx.orgId);
+      .select("status, count:id.count()")
+      .eq("assigned_org_id", ctx.orgId)
+      .order("status");
 
     if (error) throw error;
 
-    return data.reduce(
+    return (data as unknown as { status: string; count: number }[]).reduce(
       (acc, r) => {
-        acc[r.status] = (acc[r.status] || 0) + 1;
+        acc[r.status] = Number(r.count);
         return acc;
       },
       {} as Record<string, number>,
@@ -567,7 +572,8 @@ export type ServiceRequest = {
   service_id: string;
   member_id: string;
   assigned_org_id?: string;
-  status: "in_review" | "approved" | "rejected" | "completed" | "pending";
+  // Canonical status values matching the RequestStatus type in lib/types.ts.
+  status: RequestStatus;
   metadata: {
     urgency?: "urgent" | "this_week" | "exploring";
     household_size?: string;

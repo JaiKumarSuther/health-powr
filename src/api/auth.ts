@@ -118,10 +118,8 @@ export const authApi = {
    */
   async fetchProfile(
     userId: string,
-    opts?: { force?: boolean; signal?: AbortSignal },
+    opts?: { signal?: AbortSignal },
   ): Promise<Profile | null> {
-    void opts;
-
     let query = supabase
       .from("profiles")
       .select("id, email, role, full_name, avatar_url, phone, borough")
