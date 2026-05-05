@@ -9,6 +9,8 @@ import { getAvatarColor, getInitials } from "../../lib/utils";
 import { StatusBadge } from "../shared/StatusBadge";
 import { RequestDetailView } from "./RequestDetailView";
 import { getUrgencyColor, getUrgencyLabel } from "../../api/requests";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../lib/queryKeys";
 
 export function ClientsView({
   staffMode = false,
@@ -26,21 +28,14 @@ export function ClientsView({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedUrgency, setSelectedUrgency] = useState("all");
-  const [requests, setRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(orgIdProp);
-  const [membershipRole, setMembershipRole] = useState<
-    "owner" | "admin" | "member" | null
-  >(membershipRoleProp);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailRequest, setDetailRequest] = useState<any | null>(null);
+  const queryClient = useQueryClient();
   const [noteDraft, setNoteDraft] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
   );
+  const membershipRole = membershipRoleProp;
+  const orgId = orgIdProp;
 
   useEffect(() => {
     if (!toast) return;
@@ -48,81 +43,13 @@ export function ClientsView({
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  useEffect(() => {
-    if (!user || !orgIdProp) return;
-    async function loadRequests() {
-      try {
-        setLoading(true);
-        setLoadError(null);
-        const [membersResult, requestsResult] = await Promise.all([
-          staffMode
-            ? Promise.resolve({ data: [] })
-            : supabase
-                .from("organization_members")
-                .select(
-                  `
-                  profile_id,
-                  role,
-                  profile:profiles!profile_id(id, full_name, email)
-                `,
-                )
-                .eq("organization_id", orgIdProp)
-                .in("role", ["member", "admin"])
-                .order("joined_at", { ascending: true }),
-          supabase
-            .from("service_requests")
-            .select(
-              `
-              *,
-              assigned_staff:profiles!assigned_staff_id(
-                id, full_name, email
-              ),
-              member:profiles!member_id(
-                id, full_name, email, phone, borough
-              ),
-              notes:request_notes(
-                id, content, is_internal, created_at,
-                author_id,
-                author:profiles(full_name)
-              ),
-              status_history:request_status_history(
-                id, old_status, new_status, note, created_at,
-                changed_by,
-                changed_by_profile:profiles!changed_by(full_name)
-              )
-            `,
-            )
-            .eq("assigned_org_id", orgIdProp)
-            .order("created_at", { ascending: false }),
-        ]);
-        if (membersResult.error) throw membersResult.error;
-        if (requestsResult.error) throw requestsResult.error;
-        setOrgId(orgIdProp);
-        setMembershipRole(membershipRoleProp);
-        setTeamMembers(
-          (membersResult.data ?? []).map((m: any) => ({
-            profile_id: m.profile_id,
-            role: m.role,
-            full_name: m.profile?.full_name ?? "Staff",
-            email: m.profile?.email ?? "",
-          })),
-        );
-        setRequests(requestsResult.data ?? []);
-      } catch (e: any) {
-        setLoadError(e?.message || "Failed to load requests.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    void loadRequests();
-  }, [user, orgIdProp, membershipRoleProp, staffMode]);
-
-  const reload = useMemo(() => {
-    return async () => {
-      if (!orgIdProp) return;
+  const requestsListQuery = useQuery({
+    queryKey: queryKeys.serviceRequests(orgIdProp ?? "", { staffMode }),
+    enabled: !!user && !!orgIdProp,
+    queryFn: async () => {
       const [membersResult, requestsResult] = await Promise.all([
         staffMode
-          ? Promise.resolve({ data: [] })
+          ? Promise.resolve({ data: [], error: null })
           : supabase
               .from("organization_members")
               .select(
@@ -132,7 +59,7 @@ export function ClientsView({
                 profile:profiles!profile_id(id, full_name, email)
               `,
               )
-              .eq("organization_id", orgIdProp)
+              .eq("organization_id", orgIdProp!)
               .in("role", ["member", "admin"])
               .order("joined_at", { ascending: true }),
         supabase
@@ -140,8 +67,12 @@ export function ClientsView({
           .select(
             `
             *,
-            assigned_staff:profiles!assigned_staff_id(id, full_name, email),
-            member:profiles!member_id(id, full_name, email, phone, borough),
+            assigned_staff:profiles!assigned_staff_id(
+              id, full_name, email
+            ),
+            member:profiles!member_id(
+              id, full_name, email, phone, borough
+            ),
             notes:request_notes(
               id, content, is_internal, created_at,
               author_id,
@@ -154,22 +85,26 @@ export function ClientsView({
             )
           `,
           )
-          .eq("assigned_org_id", orgIdProp)
+          .eq("assigned_org_id", orgIdProp!)
           .order("created_at", { ascending: false }),
       ]);
       if (membersResult.error) throw membersResult.error;
       if (requestsResult.error) throw requestsResult.error;
-      setTeamMembers(
-        (membersResult.data ?? []).map((m: any) => ({
+      return {
+        teamMembers: (membersResult.data ?? []).map((m: any) => ({
           profile_id: m.profile_id,
           role: m.role,
           full_name: m.profile?.full_name ?? "Staff",
           email: m.profile?.email ?? "",
         })),
-      );
-      setRequests(requestsResult.data ?? []);
-    };
-  }, [staffMode, orgIdProp]);
+        requests: requestsResult.data ?? [],
+      };
+    },
+  });
+  const loading = requestsListQuery.isLoading && !requestsListQuery.data;
+  const loadError = requestsListQuery.error instanceof Error ? requestsListQuery.error.message : null;
+  const requests = requestsListQuery.data?.requests ?? [];
+  const teamMembers = requestsListQuery.data?.teamMembers ?? [];
 
   useEffect(() => {
     if (!user || !orgId) return;
@@ -185,7 +120,10 @@ export function ClientsView({
           filter: `assigned_org_id=eq.${orgId}`,
         },
         () => {
-          void reload();
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.serviceRequests(orgId, { staffMode }),
+            exact: true,
+          });
         },
       )
       .subscribe();
@@ -193,7 +131,7 @@ export function ClientsView({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [orgId, reload, user]);
+  }, [orgId, queryClient, staffMode, user]);
 
   const filteredRequests = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -221,65 +159,53 @@ export function ClientsView({
   const handleAssignStaff = async (requestId: string, staffId: string) => {
     try {
       await requestsApi.assignToStaff(requestId, staffId);
-      await reload();
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.serviceRequests(orgIdProp ?? "", { staffMode }),
+        exact: true,
+      });
+      if (requestIdFromPath && orgIdProp) {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.serviceRequestDetail(requestIdFromPath, orgIdProp),
+          exact: true,
+        });
+      }
       setToast({ type: "success", message: "Staff member assigned successfully." });
     } catch (e: any) {
       setToast({ type: "error", message: e?.message || "Failed to assign request" });
     }
   };
-
-  useEffect(() => {
-    if (!requestIdFromPath) {
-      setDetailRequest(null);
-      return;
-    }
-    // If orgId hasn't loaded yet (route change), keep a loading state
-    // so we don't flash the "not found" empty state.
-    if (!orgId) {
-      setDetailLoading(true);
-      return;
-    }
-    let active = true;
-    async function loadDetail() {
-      try {
-        setDetailLoading(true);
-        const { data, error } = await supabase
-          .from("service_requests")
-          .select(
-            `
-            *,
-            assigned_staff:profiles!assigned_staff_id(id, full_name, email),
-            member:profiles!member_id(id, full_name, email, phone, borough),
-            notes:request_notes(
-              id, content, is_internal, created_at,
-              author_id,
-              author:profiles(full_name)
-            ),
-            status_history:request_status_history(
-              id, old_status, new_status, note, created_at,
-              changed_by,
-              changed_by_profile:profiles!changed_by(full_name)
-            )
-          `,
+  const detailQuery = useQuery({
+    queryKey: queryKeys.serviceRequestDetail(requestIdFromPath ?? "", orgId ?? ""),
+    enabled: !!requestIdFromPath && !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_requests")
+        .select(
+          `
+          *,
+          assigned_staff:profiles!assigned_staff_id(id, full_name, email),
+          member:profiles!member_id(id, full_name, email, phone, borough),
+          notes:request_notes(
+            id, content, is_internal, created_at,
+            author_id,
+            author:profiles(full_name)
+          ),
+          status_history:request_status_history(
+            id, old_status, new_status, note, created_at,
+            changed_by,
+            changed_by_profile:profiles!changed_by(full_name)
           )
-          .eq("id", requestIdFromPath)
-          .eq("assigned_org_id", orgId)
-          .maybeSingle();
-        if (error) throw error;
-        if (!active) return;
-        setDetailRequest(data ?? null);
-      } catch {
-        if (!active) return;
-        setDetailRequest(null);
-      } finally {
-        if (active) setDetailLoading(false);
-      }
-    }
-    void loadDetail();
-    return () => {
-      active = false;
-    };
-  }, [orgId, requestIdFromPath]);
+        `,
+        )
+        .eq("id", requestIdFromPath!)
+        .eq("assigned_org_id", orgId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
+  const detailLoading = detailQuery.isLoading && !detailQuery.data;
+  const detailRequest = detailQuery.data ?? null;
 
   if (requestIdFromPath) {
     // While orgId/requests are still loading, don't show "not found".
@@ -356,38 +282,21 @@ export function ClientsView({
           onBack={() => navigate(staffMode ? "/cbo/assigned" : "/cbo/clients")}
           onAssignStaff={async (id, staffId) => {
             await handleAssignStaff(id, staffId);
-            const { data } = await supabase
-              .from("service_requests")
-              .select(
-                `
-                *,
-                assigned_staff:profiles!assigned_staff_id(id, full_name, email),
-                member:profiles!member_id(id, full_name, email, phone, borough),
-                notes:request_notes(id, content, is_internal, created_at, author:profiles(full_name)),
-                status_history:request_status_history(id, old_status, new_status, note, created_at, changed_by_profile:profiles!changed_by(full_name))
-              `,
-              )
-              .eq("id", id)
-              .maybeSingle();
-            setDetailRequest(data ?? null);
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.serviceRequestDetail(id, orgId ?? ""),
+              exact: true,
+            });
           }}
           onStatusChange={async (id, status) => {
             await requestsApi.updateStatus(id, status as any);
-            await reload();
-            const { data } = await supabase
-              .from("service_requests")
-              .select(
-                `
-                *,
-                assigned_staff:profiles!assigned_staff_id(id, full_name, email),
-                member:profiles!member_id(id, full_name, email, phone, borough),
-                notes:request_notes(id, content, is_internal, created_at, author:profiles(full_name)),
-                status_history:request_status_history(id, old_status, new_status, note, created_at, changed_by_profile:profiles!changed_by(full_name))
-              `,
-              )
-              .eq("id", id)
-              .maybeSingle();
-            setDetailRequest(data ?? null);
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.serviceRequests(orgId ?? "", { staffMode }),
+              exact: true,
+            });
+            await queryClient.invalidateQueries({
+              queryKey: queryKeys.serviceRequestDetail(id, orgId ?? ""),
+              exact: true,
+            });
           }}
         />
 
@@ -419,20 +328,10 @@ export function ClientsView({
                       is_internal: true,
                     });
                     setNoteDraft("");
-                    const { data } = await supabase
-                      .from("service_requests")
-                      .select(
-                        `
-                        *,
-                        assigned_staff:profiles!assigned_staff_id(id, full_name, email),
-                        member:profiles!member_id(id, full_name, email, phone, borough),
-                        notes:request_notes(id, content, is_internal, created_at, author:profiles(full_name)),
-                        status_history:request_status_history(id, old_status, new_status, note, created_at, changed_by_profile:profiles!changed_by(full_name))
-                      `,
-                      )
-                      .eq("id", detailRequest.id)
-                      .maybeSingle();
-                    setDetailRequest(data ?? null);
+                    await queryClient.invalidateQueries({
+                      queryKey: queryKeys.serviceRequestDetail(detailRequest.id, orgId ?? ""),
+                      exact: true,
+                    });
                   } finally {
                     setNoteSaving(false);
                   }
@@ -476,7 +375,7 @@ export function ClientsView({
           <p className="text-xs mt-1">{loadError}</p>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => void requestsListQuery.refetch()}
             className="mt-3 h-9 px-3 rounded-lg bg-white border border-red-200 text-red-700 text-[12px] font-semibold hover:bg-red-50"
           >
             Refresh

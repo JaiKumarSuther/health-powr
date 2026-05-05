@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { requestsApi } from '../../api/requests';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -318,87 +320,62 @@ function CBOOverviewSkeleton() {
 
 export default function CBOOverview() {
   const { user } = useAuth();
-  const [loading, setLoading]           = useState(true);
-  const [orgId, setOrgId]               = useState<string | null>(null);
-  const [orgStatus, setOrgStatus]       = useState<string | null>(null);
-  const [requests, setRequests]         = useState<ServiceRequest[]>([]);
-  const [teamActivity, setTeamActivity] = useState<ActivityItem[]>([]);
-  const [teamMembers, setTeamMembers]   = useState<TeamMember[]>([]);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab]       = useState<InboxTab>('unopened');
   const [attnDismissed, setAttnDismissed] = useState(false);
+  const userId = user?.id ?? "";
 
-  // ── Load ──
-  useEffect(() => {
-    if (!user) return;
-    async function load() {
-      try {
-        setLoading(true);
-        const myOrgId = await requestsApi.getMyOrgId();
-        setOrgId(myOrgId);
-
-        if (myOrgId) {
-          const { data: orgRow } = await supabase
-            .from('organizations').select('status').eq('id', myOrgId).maybeSingle();
-          setOrgStatus(orgRow?.status ?? null);
-        }
-
-        const [rawRequests, activity, members] = await Promise.all([
-          requestsApi.getOrgRequests(),
-          requestsApi.getOrgTeamActivity(10),
-          requestsApi.getOrgTeamMembers(),
-        ]);
-
-        // Annotate requests with hoursOld
-        const annotated = rawRequests.map((r: any) => ({
-          ...r,
-          hoursOld: hoursAgo(r.created_at),
-        }));
-        setRequests(annotated);
-
-        // Map activity to display items
-        setTeamActivity(
-          activity.map((item: any, i: number) => ({
-            id: item.id,
-            actor: item.actor ?? 'Someone',
-            text: item.text ?? '',
-            created_at: item.created_at,
-            dotColor: ACTIVITY_DOT_COLORS[i % ACTIVITY_DOT_COLORS.length],
-          }))
-        );
-
-        // Map team members with their assigned requests
-        setTeamMembers(
-          members.map((m: any) => ({
-            profile_id: m.profile_id,
-            full_name: m.full_name ?? 'Unknown',
-            role: m.role === 'owner' ? 'Admin' : 'Caseworker',
-            isActive: true, // TODO: replace with real presence once available
-            assignedRequests: annotated.filter((r: ServiceRequest) => r.assigned_staff_id === m.profile_id),
-          }))
-        );
-      } finally {
-        setLoading(false);
+  const overviewQuery = useQuery({
+    queryKey: queryKeys.cboOverview(userId),
+    enabled: !!userId,
+    queryFn: async () => {
+      const myOrgId = await requestsApi.getMyOrgId();
+      let orgStatus: string | null = null;
+      if (myOrgId) {
+        const { data: orgRow } = await supabase
+          .from('organizations')
+          .select('status')
+          .eq('id', myOrgId)
+          .maybeSingle();
+        orgStatus = orgRow?.status ?? null;
       }
-    }
-    void load();
-  }, [user]);
 
-  // ── Reload callback (used by realtime) ──
-  const reload = useMemo(() => async () => {
-    const [rawRequests, activity] = await Promise.all([
-      requestsApi.getOrgRequests(),
-      requestsApi.getOrgTeamActivity(10),
-    ]);
-    const annotated = rawRequests.map((r: any) => ({ ...r, hoursOld: hoursAgo(r.created_at) }));
-    setRequests(annotated);
-    setTeamActivity(
-      activity.map((item: any, i: number) => ({
-        id: item.id, actor: item.actor ?? 'Someone',
-        text: item.text ?? '', created_at: item.created_at,
+      const [rawRequests, activity, members] = await Promise.all([
+        requestsApi.getOrgRequests(),
+        requestsApi.getOrgTeamActivity(10),
+        requestsApi.getOrgTeamMembers(),
+      ]);
+
+      const requests = rawRequests.map((r: any) => ({
+        ...r,
+        hoursOld: hoursAgo(r.created_at),
+      })) as ServiceRequest[];
+
+      const teamActivity = activity.map((item: any, i: number) => ({
+        id: item.id,
+        actor: item.actor ?? 'Someone',
+        text: item.text ?? '',
+        created_at: item.created_at,
         dotColor: ACTIVITY_DOT_COLORS[i % ACTIVITY_DOT_COLORS.length],
-      }))
-    );
-  }, []);
+      })) as ActivityItem[];
+
+      const teamMembers = members.map((m: any) => ({
+        profile_id: m.profile_id,
+        full_name: m.full_name ?? 'Unknown',
+        role: m.role === 'owner' ? 'Admin' : 'Caseworker',
+        isActive: true,
+        assignedRequests: requests.filter((r: ServiceRequest) => r.assigned_staff_id === m.profile_id),
+      })) as TeamMember[];
+
+      return { orgId: myOrgId, orgStatus, requests, teamActivity, teamMembers };
+    },
+  });
+
+  const orgId = overviewQuery.data?.orgId ?? null;
+  const orgStatus = overviewQuery.data?.orgStatus ?? null;
+  const requests = overviewQuery.data?.requests ?? [];
+  const teamActivity = overviewQuery.data?.teamActivity ?? [];
+  const teamMembers = overviewQuery.data?.teamMembers ?? [];
 
   // ── Real-time ──
   useEffect(() => {
@@ -408,10 +385,15 @@ export default function CBOOverview() {
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'service_requests',
         filter: `assigned_org_id=eq.${orgId}`,
-      }, () => void reload())
+      }, () => {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.cboOverview(userId),
+          exact: true,
+        });
+      })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [orgId, reload, user]);
+  }, [orgId, queryClient, user, userId]);
 
   // ── Derived data ──
   const byStatus = useMemo(() => {
@@ -487,7 +469,7 @@ export default function CBOOverview() {
 
   // ─────────────────────────────────────────────────────────────────────────────
 
-  if (loading) return <CBOOverviewSkeleton />;
+  if (overviewQuery.isLoading && !overviewQuery.data) return <CBOOverviewSkeleton />;
 
   return (
     <div className="space-y-4">

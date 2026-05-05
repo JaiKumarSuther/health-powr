@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { MessageBubble } from '../shared/MessageBubble';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +111,7 @@ function SkeletonSidebar() {
 
 export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?: TopTab } = {}) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const requestId = new URLSearchParams(location.search).get('requestId');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,7 +133,6 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   const [conversations, setConversations] = useState<OrgConversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [loadingConvs, setLoadingConvs] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   // ── Team state ──
@@ -147,6 +149,7 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   // ── Org context ──
   const [orgId, setOrgId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const userKey = user?.id ?? "";
 
   // ── Container ResizeObserver ──
   useEffect(() => {
@@ -159,46 +162,52 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
     return () => obs.disconnect();
   }, []);
 
-  // ── Load client conversations ──
-  useEffect(() => {
-    if (!user) return;
-    async function load() {
-      try {
-        setLoadingConvs(true);
-        const ctx = await requestsApi.getMyOrgMembership();
-        setOrgId(ctx.orgId);
-        setUserId(ctx.userId ?? null);
-
-        if (topTab === 'clients') {
-          const convs = await messagesApi.getMyOrgConversations();
-          const normalized: OrgConversation[] = (convs ?? []).map((conv: any) => ({
-            ...conv,
-            category: conv?.category ?? null,
-            borough: conv?.borough ?? null,
-            status: conv?.status ?? null,
-            assigned_staff: conv?.assigned_staff ?? null,
-          }));
-          setConversations(normalized);
-
-          if (normalized.length > 0) {
-            const match = requestId ? normalized.find(c => c.request_id === requestId) : null;
-            setSelectedConvId(match?.id ?? normalized[0].id);
-          }
-        }
-
-        const members = await requestsApi.getOrgTeamMembers();
-        setTeamMembers(members.map((m: any) => ({
+  const bootstrapQuery = useQuery({
+    queryKey: queryKeys.cboMessagesBootstrap(userKey, topTab, requestId ?? undefined),
+    enabled: !!userKey,
+    queryFn: async () => {
+      const ctx = await requestsApi.getMyOrgMembership();
+      const members = await requestsApi.getOrgTeamMembers();
+      let normalized: OrgConversation[] = [];
+      if (topTab === 'clients') {
+        const convs = await messagesApi.getMyOrgConversations();
+        normalized = (convs ?? []).map((conv: any) => ({
+          ...conv,
+          category: conv?.category ?? null,
+          borough: conv?.borough ?? null,
+          status: conv?.status ?? null,
+          assigned_staff: conv?.assigned_staff ?? null,
+        }));
+      }
+      return {
+        orgId: ctx.orgId,
+        userId: ctx.userId ?? null,
+        members: members.map((m: any) => ({
           profile_id: m.profile_id,
           full_name: m.full_name ?? 'Staff member',
           role: m.role === 'owner' ? 'Admin' : 'Caseworker',
           isActive: true,
-        })));
-      } finally {
-        setLoadingConvs(false);
+        })) as TeamMember[],
+        conversations: normalized,
+      };
+    },
+  });
+
+  useEffect(() => {
+    if (!bootstrapQuery.data) return;
+    setOrgId(bootstrapQuery.data.orgId);
+    setUserId(bootstrapQuery.data.userId);
+    setTeamMembers(bootstrapQuery.data.members);
+    if (topTab === 'clients') {
+      setConversations(bootstrapQuery.data.conversations);
+      if (bootstrapQuery.data.conversations.length > 0) {
+        const match = requestId
+          ? bootstrapQuery.data.conversations.find(c => c.request_id === requestId)
+          : null;
+        setSelectedConvId(match?.id ?? bootstrapQuery.data.conversations[0].id);
       }
     }
-    void load();
-  }, [user, requestId, topTab]);
+  }, [bootstrapQuery.data, requestId, topTab]);
 
   // ── Load messages for selected client conversation ──
   useEffect(() => {
@@ -319,26 +328,34 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
   }, [orgId, topTab, selectedChannel]);
 
   // ── Load team messages ──
+  const teamMessagesQuery = useQuery({
+    queryKey: queryKeys.messages(teamConvId ?? ""),
+    enabled: topTab === 'team' && !!teamConvId,
+    queryFn: async () => (await messagesApi.getMessages(teamConvId!)) as unknown as Message[],
+  });
+
+  useEffect(() => {
+    if (teamMessagesQuery.data) {
+      setTeamMessages(teamMessagesQuery.data);
+    }
+  }, [teamMessagesQuery.data]);
+
   useEffect(() => {
     if (!teamConvId || topTab !== 'team') return;
-    let active = true;
-
-    async function load() {
-      try {
-        const data = await messagesApi.getMessages(teamConvId!);
-        if (active) setTeamMessages(data as unknown as Message[]);
-      } catch (err) {
-        console.error('[CBOMessagesView] Failed to load team messages:', err);
-      }
-    }
-
-    void load();
-    const sub = messagesApi.subscribeToMessages(teamConvId, () => void load());
+    const sub = messagesApi.subscribeToMessages(teamConvId, (msg: any) => {
+      queryClient.setQueryData(queryKeys.messages(teamConvId), (prev: Message[] | undefined) => {
+        const next = prev ?? [];
+        const cast = msg as Message;
+        if (next.some((m) => m.id === cast.id)) return next;
+        const merged = [...next, cast];
+        merged.sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+        return merged;
+      });
+    });
     return () => {
-      active = false;
       void supabase.removeChannel(sub);
     };
-  }, [teamConvId, topTab]);
+  }, [queryClient, teamConvId, topTab]);
 
   // ── Auto scroll ──
   useEffect(() => {
@@ -391,7 +408,7 @@ export function CBOMessagesView({ defaultTopTab = 'clients' }: { defaultTopTab?:
 
   // ─── Loading state ─────────────────────────────────────────────────────────
 
-  if (loadingConvs) {
+  if ((bootstrapQuery.isLoading && !bootstrapQuery.data) || (topTab === 'team' && !orgId && !!user)) {
     return (
       <div ref={containerRef} className="flex h-full w-full overflow-hidden bg-white">
         {/* Sidebar skeleton */}

@@ -9,6 +9,8 @@ export const queryKeys = {
 
   serviceRequests: (orgId: string, filters?: object) =>
     ["service_requests", orgId, filters ?? {}] as const,
+  serviceRequestDetail: (requestId: string, orgId: string) =>
+    ["service_requests", "detail", requestId, orgId] as const,
 
   services: (orgId: string) => ["services", "by_org", orgId] as const,
   serviceById: (id: string) => ["services", "by_id", id] as const,
@@ -32,5 +34,8 @@ export const queryKeys = {
   adminOverview: () => ["admin", "overview"] as const,
   adminRequestsList: (page: number) => ["admin", "requests", "list", page] as const,
   adminReportsSummary: () => ["admin", "reports", "summary"] as const,
+  cboOverview: (userId: string) => ["cbo", "overview", userId] as const,
+  cboMessagesBootstrap: (userId: string, topTab: "clients" | "team", requestId?: string) =>
+    ["cbo", "messages", "bootstrap", userId, topTab, requestId ?? ""] as const,
 };
 
