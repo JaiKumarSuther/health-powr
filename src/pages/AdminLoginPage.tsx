@@ -18,9 +18,13 @@ export default function AdminLoginPage() {
     if (!user || !profile) return;
     if (profile.role === 'admin') {
       navigate('/admin', { replace: true });
+    } else if (isWaitingForRole) {
+      // Role resolved but it is not admin — clear the spinner so the user
+      // can see the page again and sign in with correct credentials.
+      setIsWaitingForRole(false);
+      setError('This account does not have admin access.');
     }
-    // If profile.role is NOT admin, RequireAuth will route them away from /admin.
-  }, [user, profile, isResolvingRole, navigate]);
+  }, [user, profile, isResolvingRole, isWaitingForRole, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
