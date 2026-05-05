@@ -1,6 +1,6 @@
 import { StaffOverview } from './StaffOverview';
 
-export function StaffOverviewView() {
+export default function StaffOverviewView() {
   return <StaffOverview />;
 }
 

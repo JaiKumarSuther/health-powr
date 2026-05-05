@@ -43,9 +43,26 @@ const Spinner = () => (
 );
 
 function AppRoutes() {
-  const { isLoading, isResolvingRole } = useAuth();
+  const { isLoading, isResolvingRole, refreshProfile } = useAuth();
+  const [isTimedOut, setIsTimedOut] = useState(false);
+
+  // Safety timeout: if Auth takes > 10s, allow the app to attempt rendering.
+  // This prevents infinite loaders if Supabase session refresh hangs.
+  useEffect(() => {
+    if (isLoading || isResolvingRole) {
+      const timer = setTimeout(() => {
+        console.warn("[AppRoutes] Auth resolution taking too long, triggering safety fallback.");
+        setIsTimedOut(true);
+      }, 10000);
+      return () => clearTimeout(timer);
+    } else {
+      setIsTimedOut(false);
+    }
+  }, [isLoading, isResolvingRole]);
 
   if (!isSupabaseConfigured) return <ConfigurationError />;
+
+  const isAuthLoading = (isLoading || isResolvingRole) && !isTimedOut;
 
   return (
     <Suspense fallback={<Spinner />}>
@@ -60,19 +77,19 @@ function AppRoutes() {
 
         {/* Protected routes - show spinner only when loading */}
         <Route path="/client/*" element={
-          (isLoading || isResolvingRole) ? <Spinner /> :
+          isAuthLoading ? <Spinner /> :
             <RequireAuth role="community_member"><ClientDashboard /></RequireAuth>
         } />
         <Route path="/cbo/*" element={
-          (isLoading || isResolvingRole) ? <Spinner /> :
+          isAuthLoading ? <Spinner /> :
             <RequireAuth role="organization"><CBODashboard /></RequireAuth>
         } />
         <Route path="/staff/*" element={
-          (isLoading || isResolvingRole) ? <Spinner /> :
+          isAuthLoading ? <Spinner /> :
             <RequireAuth role="organization"><StaffDashboard /></RequireAuth>
         } />
         <Route path="/admin/*" element={
-          (isLoading || isResolvingRole) ? <Spinner /> :
+          isAuthLoading ? <Spinner /> :
             <RequireAuth role="admin"><AdminDashboard /></RequireAuth>
         } />
 

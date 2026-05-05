@@ -96,11 +96,11 @@ Deno.serve(async (req) => {
       borough?: string;
     };
 
-    const orgName = body?.orgName?.trim();
-    const borough = body?.borough?.trim() || "Manhattan";
+    const orgName = body?.orgName?.trim() || (callerData.user.user_metadata?.organization as string | undefined)?.trim();
+    const borough = body?.borough?.trim() || (callerData.user.user_metadata?.borough as string | undefined)?.trim() || "Manhattan";
 
     if (!orgName) {
-      return json(400, { error: "orgName is required." }, origin);
+      return json(400, { error: "orgName is required (either in request body or user metadata)." }, origin);
     }
 
     // Ensure caller exists in public.profiles before writing FKs.

@@ -1,6 +1,7 @@
 import { CBOHeader } from './CBOHeader';
 import { CBOSidebar } from './CBOSidebar';
 import { useAuth } from '../../contexts/AuthContext';
+import CBOOverview from './CBOOverview';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { requestsApi } from '../../api/requests';
 import { orgsApi } from '../../api/organizations';
@@ -8,7 +9,7 @@ import { messagesApi } from '../../api/messages';
 import { supabase } from '../../lib/supabase';
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 
-const CBOOverview = lazy(() => import('./CBOOverview').then(m => ({ default: m.CBOOverview })));
+// const CBOOverview = lazy(() => import('./CBOOverview'));
 const ClientsView = lazy(() => import('./ClientsView').then(m => ({ default: m.ClientsView })));
 const ServicesView = lazy(() => import('./ServicesView').then(m => ({ default: m.ServicesView })));
 const CreateServicePage = lazy(() => import('./CreateServicePage').then(m => ({ default: m.CreateServicePage })));
@@ -19,7 +20,9 @@ const ReportsView = lazy(() => import('./ReportsView').then(m => ({ default: m.R
 const SettingsView = lazy(() => import('./SettingsView').then(m => ({ default: m.SettingsView })));
 const HelpSupportView = lazy(() => import('./HelpSupportView').then(m => ({ default: m.HelpSupportView })));
 const AccountSettingsView = lazy(() => import('../shared/AccountSettingsView').then(m => ({ default: m.AccountSettingsView })));
-const StaffOverviewView = lazy(() => import('../staff/StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
+import StaffOverviewView from '../staff/StaffOverviewView';
+
+// const StaffOverviewView = lazy(() => import('../staff/StaffOverviewView').then(m => ({ default: m.StaffOverviewView })));
 
 async function invokeSetupOrganization(input: { orgName: string; borough: string }, accessToken: string) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;

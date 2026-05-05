@@ -240,9 +240,83 @@ function HBarChart({ items, maxCount }: { items: { label: string; count: number;
   );
 }
 
+function CBOOverviewSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-2xl p-4 flex flex-col gap-2 min-h-[140px]">
+            <div className="h-9 w-16 bg-slate-100 rounded" />
+            <div className="h-3 w-24 bg-slate-100 rounded" />
+            <div className="mt-auto h-7 w-full bg-slate-50 rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
+        {/* Inbox Skeleton */}
+        <div className="bg-white rounded-2xl flex flex-col min-h-[400px]">
+          <div className="px-4 py-3 border-b border-[#e8f0ee] flex justify-between items-center">
+            <div className="h-4 w-32 bg-slate-100 rounded" />
+            <div className="h-3 w-16 bg-slate-100 rounded" />
+          </div>
+          <div className="flex border-b border-[#e8f0ee] px-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="px-3 py-3 h-10 w-20 bg-slate-50 rounded mx-1 mt-1" />
+            ))}
+          </div>
+          <div className="p-4 space-y-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-slate-100" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-1/3 bg-slate-100 rounded" />
+                  <div className="h-2 w-1/2 bg-slate-100 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity Skeleton */}
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="h-4 w-32 bg-slate-100 rounded mb-4" />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex gap-3">
+              <div className="w-2 h-2 rounded-full bg-slate-100 mt-1" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-full bg-slate-100 rounded" />
+                <div className="h-2 w-1/4 bg-slate-100 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="h-4 w-40 bg-slate-100 rounded" />
+          <div className="h-20 w-full bg-slate-50 rounded" />
+        </div>
+        <div className="bg-white rounded-2xl p-4 space-y-4">
+          <div className="h-4 w-40 bg-slate-100 rounded" />
+          <div className="space-y-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-2 w-full bg-slate-50 rounded" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function CBOOverview() {
+export default function CBOOverview() {
   const { user } = useAuth();
   const [loading, setLoading]           = useState(true);
   const [orgId, setOrgId]               = useState<string | null>(null);
@@ -413,7 +487,7 @@ export function CBOOverview() {
 
   // ─────────────────────────────────────────────────────────────────────────────
 
-  if (loading) return <div className="py-20 text-center text-[#7a9e99]">Loading overview...</div>;
+  if (loading) return <CBOOverviewSkeleton />;
 
   return (
     <div className="space-y-4">

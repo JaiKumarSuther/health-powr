@@ -91,11 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       input.organizationName?.trim() ||
       session?.user?.user_metadata?.organization?.trim() ||
       'My Organization'
-    const borough =
-      input.borough?.trim() ||
-      session?.user?.user_metadata?.borough?.trim() ||
-      'Brooklyn'
-
+    
     // Skip if already successfully bootstrapped this session.
     if (didBootstrapOrgForUserRef.current === input.userId) return;
     // Guard setup-organization so it only runs ONCE per session/mount
@@ -106,15 +102,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       bootstrapInFlightRef.current = true;
       orgSetupAttempted.current = true;
-      console.log('[Bootstrap] Starting org setup for user:', input.userId, 'org:', orgName);
+      console.log('[Bootstrap] Checking if org setup is needed for user:', input.userId);
+      
+      // Double check membership before hitting the edge function
+      const { data: existing } = await withTimeout(
+        async (signal) => await supabase.from('organization_members').select('id').eq('profile_id', input.userId).abortSignal(signal).maybeSingle(),
+        3000
+      );
+
+      if (existing) {
+        console.log('[Bootstrap] User already has organization membership, skipping setup.');
+        didBootstrapOrgForUserRef.current = input.userId;
+        return;
+      }
+
+      console.log('[Bootstrap] No membership found, invoking setup-organization edge function...');
       await invokeSetupOrganization();
-      // Only mark as done after a successful creation so a transient failure
-      // does not permanently block the org from being created.
       didBootstrapOrgForUserRef.current = input.userId;
     } catch (e: unknown) {
-      // Non-blocking — but we don't retry automatically anymore per requirement
       console.error("[Bootstrap] Org setup failed.", e);
-      setAuthError("Failed to set up organization workspace. Please contact support.");
+      // We don't set a global auth error here to avoid blocking the whole app 
+      // if only the org setup fails.
     } finally {
       bootstrapInFlightRef.current = false;
     }
@@ -198,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fetchProfileWithRetry = async (userId: string): Promise<Profile | null> => {
+  const fetchProfileWithRetry = useCallback(async (userId: string): Promise<Profile | null> => {
     // Attempt 1 — short timeout; most users have a profile row ready immediately.
     console.log('[Auth] Profile fetch attempt 1/2...');
     const first = await withTimeout(
@@ -216,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (signal) => authApi.fetchProfile(userId, { signal }),
       4000,
     );
-  };
+  }, []);
 
   const initializeAuth = useCallback(async (isMounted: () => boolean) => {
     try {
@@ -224,12 +232,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearAuthError();
       setIsResolvingRole(true);
 
-      const { data: { session: sess } } = await supabase.auth.getSession();
-      console.log("[AuthContext] Session checked:", !!sess);
+      console.log("[AuthContext] Calling getSession...");
+      const { data: { session: sess }, error: sessError } = await withTimeout(
+        () => supabase.auth.getSession(),
+        5000
+      );
+      
+      if (sessError) {
+        console.error("[AuthContext] getSession error:", sessError);
+      }
+      
       if (!isMounted()) return;
 
       if (!sess) {
-        // No session at all → redirect to login, do NOT show error screen
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -238,14 +253,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Session exists → now fetch profile
+      // Session exists → check for expiry and refresh if needed
       let session = sess;
       const expiresAt = sess.expires_at ?? 0;
       const nowSeconds = Math.floor(Date.now() / 1000);
       const secondsUntilExpiry = expiresAt - nowSeconds;
+      
       if (secondsUntilExpiry < 300) {
-        const { data: refreshData } = await supabase.auth.refreshSession();
-        if (refreshData.session) session = refreshData.session;
+        console.log("[AuthContext] Session expiring soon, refreshing...");
+        const refreshResult = await withTimeout(
+          () => supabase.auth.refreshSession(),
+          8000
+        );
+        if (refreshResult?.data?.session) {
+          session = refreshResult.data.session;
+        }
       }
 
       if (!isMounted()) return;
@@ -328,12 +350,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       }
     } finally {
-      if (isMounted()) {
-        setIsResolvingRole(false);
-        setIsLoading(false);
-      }
+      // AuthProvider is a persistent root component. We always want to clear
+      // the loading state even if a specific useEffect run is no longer "current"
+      // (isMounted false), to ensure the app doesn't stay stuck in a spinner.
+      setIsResolvingRole(false);
+      setIsLoading(false);
     }
-  }, [mapSupabaseUserToAppUser]);
+  }, [mapSupabaseUserToAppUser, fetchProfileWithRetry]);
 
   const retryAuth = useCallback(async () => {
     setAuthError(null);
@@ -379,29 +402,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // For SIGNED_IN: always run initializeAuth so profile is loaded and
-        // navigation fires. For token refreshes (TOKEN_REFRESHED) on the same
-        // user, just update the session quietly.
+        // For SIGNED_IN: only trigger full initialization if the user has changed.
+        // Supabase fires SIGNED_IN on window focus even if the session is unchanged.
         if (event === "SIGNED_IN") {
+          if (nextUserId === currentUserIdRef.current && user) {
+            console.log("[AuthContext] SIGNED_IN fired but user unchanged, skipping re-init");
+            if (nextSession) setSession(nextSession);
+            return;
+          }
+
           currentUserIdRef.current = nextUserId;
           setIsResolvingRole(true);
           try {
-            // Await the session to be fully ready
             await initializeAuth(() => isMounted);
           } catch (error) {
             console.error("[AuthContext] Error handling SIGNED_IN:", error);
           } finally {
-            if (isMounted) {
-              setIsResolvingRole(false);
-              setIsLoading(false);
-            }
+            setIsResolvingRole(false);
+            setIsLoading(false);
           }
           return;
         }
 
         if (event === "INITIAL_SESSION") {
-          // Skip if same user already initialized (e.g. hot reload)
-          if (nextUserId && nextUserId === currentUserIdRef.current) {
+          if (nextUserId && nextUserId === currentUserIdRef.current && user) {
             if (nextSession) setSession(nextSession);
             return;
           }
@@ -412,15 +436,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.error("[AuthContext] Error handling INITIAL_SESSION:", error);
           } finally {
-            if (isMounted) {
-              setIsResolvingRole(false);
-              setIsLoading(false);
-            }
+            setIsResolvingRole(false);
+            setIsLoading(false);
           }
           return;
         }
 
-        // TOKEN_REFRESHED or other events — just update session quietly
         if (nextUserId && nextUserId === currentUserIdRef.current && nextSession) {
           setSession(nextSession);
         }
@@ -523,24 +544,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyResolvedIdentity(mapped, profileData);
   };
 
+  const value = useMemo(() => ({
+    user,
+    profile,
+    session,
+    signIn,
+    signUp,
+    signOut,
+    refreshProfile,
+    retryAuth,
+    isLoading,
+    isResolvingRole,
+    isSubmitting,
+    authError,
+    clearAuthError,
+  }), [
+    user,
+    profile,
+    session,
+    signIn,
+    signUp,
+    signOut,
+    refreshProfile,
+    retryAuth,
+    isLoading,
+    isResolvingRole,
+    isSubmitting,
+    authError,
+  ]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        session,
-        signIn,
-        signUp,
-        signOut,
-        refreshProfile,
-        retryAuth,
-        isLoading,
-        isResolvingRole,
-        isSubmitting,
-        authError,
-        clearAuthError,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {authError ? (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-sm p-6">
